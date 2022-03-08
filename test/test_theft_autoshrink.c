@@ -10,10 +10,6 @@
 
 #include "polyfill.h"
 
-#ifndef _WIN32
-#include <sys/time.h>
-#endif
-
 #define MAX_PAIRS 16
 struct fake_prng_info {
 	size_t pos;

@@ -8,10 +8,6 @@
 #include <inttypes.h>
 #include <signal.h>
 
-#ifndef _WIN32
-#include <sys/time.h>
-#endif
-
 #include "polyfill.h"
 
 #define COUNT(X) (sizeof(X) / sizeof(X[0]))

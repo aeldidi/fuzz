@@ -7,10 +7,6 @@
 
 #include "polyfill.h"
 
-#ifndef _WIN32
-#include <sys/time.h>
-#endif
-
 /* Name used when no property name is set. */
 static const char def_prop_name[] = "(anonymous)";
 

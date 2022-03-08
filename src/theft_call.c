@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
+#include "polyfill.h"
 #include "theft_autoshrink.h"
 #include "theft_call_internal.h"
-
-#ifndef _WIN32
-#include <sys/time.h>
-#endif
 
 #include <time.h>
 #define LOG_CALL 0
