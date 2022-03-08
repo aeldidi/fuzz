@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 struct bulk_buffer {
-    size_t size;
-    uint64_t *buf;
+	size_t    size;
+	uint64_t* buf;
 };
 
 extern struct theft_type_info bb_info;

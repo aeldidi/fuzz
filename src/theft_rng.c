@@ -60,93 +60,111 @@
  * Also, the functions in the module's public interface have
  * been prefixed with "theft_rng_". */
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "theft_rng.h"
 
 #define THEFT_MT_PARAM_N 312
 struct theft_rng {
-    uint64_t mt[THEFT_MT_PARAM_N]; /* the array for the state vector  */
-    int16_t mti;
+	uint64_t mt[THEFT_MT_PARAM_N]; /* the array for the state vector  */
+	int16_t  mti;
 };
 
-#define NN THEFT_MT_PARAM_N
-#define MM 156
+#define NN       THEFT_MT_PARAM_N
+#define MM       156
 #define MATRIX_A 0xB5026F5AA96619E9ULL
-#define UM 0xFFFFFFFF80000000ULL /* Most significant 33 bits */
-#define LM 0x7FFFFFFFULL /* Least significant 31 bits */
+#define UM       0xFFFFFFFF80000000ULL /* Most significant 33 bits */
+#define LM       0x7FFFFFFFULL         /* Least significant 31 bits */
 
-static uint64_t genrand64_int64(struct theft_rng *r);
+static uint64_t genrand64_int64(struct theft_rng* r);
 
 /* Heap-allocate a mersenne twister struct. */
-struct theft_rng *theft_rng_init(uint64_t seed) {
-    struct theft_rng *mt = malloc(sizeof(struct theft_rng));
-    if (mt == NULL) { return NULL; }
-    theft_rng_reset(mt, seed);
-    return mt;
+struct theft_rng*
+theft_rng_init(uint64_t seed)
+{
+	struct theft_rng* mt = malloc(sizeof(struct theft_rng));
+	if (mt == NULL) {
+		return NULL;
+	}
+	theft_rng_reset(mt, seed);
+	return mt;
 }
 
 /* Free a heap-allocated mersenne twister struct. */
-void theft_rng_free(struct theft_rng *mt) {
-    free(mt);
+void
+theft_rng_free(struct theft_rng* mt)
+{
+	free(mt);
 }
 
 /* initializes mt[NN] with a seed */
-void theft_rng_reset(struct theft_rng *mt, uint64_t seed)
+void
+theft_rng_reset(struct theft_rng* mt, uint64_t seed)
 {
-    mt->mt[0] = seed;
-    uint16_t mti = 0;
-    for (mti=1; mti<NN; mti++) {
-        mt->mt[mti] = (6364136223846793005ULL *
-            (mt->mt[mti-1] ^ (mt->mt[mti-1] >> 62)) + mti);
-    }
-    mt->mti = mti;
+	mt->mt[0]    = seed;
+	uint16_t mti = 0;
+	for (mti = 1; mti < NN; mti++) {
+		mt->mt[mti] = (6364136223846793005ULL *
+						(mt->mt[mti - 1] ^
+								(mt->mt[mti - 1] >>
+										62)) +
+				mti);
+	}
+	mt->mti = mti;
 }
 
 /* Get a 64-bit random number. */
-uint64_t theft_rng_random(struct theft_rng *mt) {
-    return genrand64_int64(mt);
+uint64_t
+theft_rng_random(struct theft_rng* mt)
+{
+	return genrand64_int64(mt);
 }
 
 /* Generate a random number on [0,1]-real-interval. */
-double theft_rng_uint64_to_double(uint64_t x) {
-    return (x >> 11) * (1.0/9007199254740991.0);
+double
+theft_rng_uint64_to_double(uint64_t x)
+{
+	return (x >> 11) * (1.0 / 9007199254740991.0);
 }
 
 /* generates a random number on [0, 2^64-1]-interval */
-static uint64_t genrand64_int64(struct theft_rng *r)
+static uint64_t
+genrand64_int64(struct theft_rng* r)
 {
-    int i;
-    uint64_t x;
-    static uint64_t mag01[2]={0ULL, MATRIX_A};
+	int             i;
+	uint64_t        x;
+	static uint64_t mag01[2] = {0ULL, MATRIX_A};
 
-    if (r->mti >= NN) { /* generate NN words at one time */
+	if (r->mti >= NN) { /* generate NN words at one time */
 
-        /* if init has not been called, */
-        /* a default initial seed is used */
-        if (r->mti == NN+1)
-            theft_rng_reset(r, 5489ULL);
+		/* if init has not been called, */
+		/* a default initial seed is used */
+		if (r->mti == NN + 1)
+			theft_rng_reset(r, 5489ULL);
 
-        for (i=0;i<NN-MM;i++) {
-            x = (r->mt[i]&UM)|(r->mt[i+1]&LM);
-            r->mt[i] = r->mt[i+MM] ^ (x>>1) ^ mag01[(int)(x&1ULL)];
-        }
-        for (;i<NN-1;i++) {
-            x = (r->mt[i]&UM)|(r->mt[i+1]&LM);
-            r->mt[i] = r->mt[i+(MM-NN)] ^ (x>>1) ^ mag01[(int)(x&1ULL)];
-        }
-        x = (r->mt[NN-1]&UM)|(r->mt[0]&LM);
-        r->mt[NN-1] = r->mt[MM-1] ^ (x>>1) ^ mag01[(int)(x&1ULL)];
+		for (i = 0; i < NN - MM; i++) {
+			x        = (r->mt[i] & UM) | (r->mt[i + 1] & LM);
+			r->mt[i] = r->mt[i + MM] ^ (x >> 1) ^
+				   mag01[(int)(x & 1ULL)];
+		}
+		for (; i < NN - 1; i++) {
+			x        = (r->mt[i] & UM) | (r->mt[i + 1] & LM);
+			r->mt[i] = r->mt[i + (MM - NN)] ^ (x >> 1) ^
+				   mag01[(int)(x & 1ULL)];
+		}
+		x             = (r->mt[NN - 1] & UM) | (r->mt[0] & LM);
+		r->mt[NN - 1] = r->mt[MM - 1] ^ (x >> 1) ^
+				mag01[(int)(x & 1ULL)];
 
-        r->mti = 0;
-    }
-  
-    x = r->mt[r->mti++];
+		r->mti = 0;
+	}
 
-    x ^= (x >> 29) & 0x5555555555555555ULL;
-    x ^= (x << 17) & 0x71D67FFFEDA60000ULL;
-    x ^= (x << 37) & 0xFFF7EEE000000000ULL;
-    x ^= (x >> 43);
+	x = r->mt[r->mti++];
 
-    return x;
+	x ^= (x >> 29) & 0x5555555555555555ULL;
+	x ^= (x << 17) & 0x71D67FFFEDA60000ULL;
+	x ^= (x << 37) & 0xFFF7EEE000000000ULL;
+	x ^= (x >> 43);
+
+	return x;
 }
