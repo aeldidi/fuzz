@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: ISC
+// SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
 #include "polyfill.h"
 #include "theft_run.h"
 #include "theft_run_internal.h"

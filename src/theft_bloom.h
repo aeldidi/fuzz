@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: ISC
+// SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
 #ifndef THEFT_BLOOM_H
 #define THEFT_BLOOM_H
 

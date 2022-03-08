@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: ISC
+// SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
 #ifndef TEST_THEFT_H
 #define TEST_THEFT_H
 

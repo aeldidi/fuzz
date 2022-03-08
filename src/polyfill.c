@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: ISC
+// SPDX-FileCopyrightText: 2022 Ayman El Didi
 #include <stdint.h>
 #include <stdio.h>
 

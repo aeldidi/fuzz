@@ -56,10 +56,13 @@ theft_lib = library('theft',
 	dependencies: deps,
 )
 
-theft = declare_dependency(
+theft_dep = declare_dependency(
 	link_with: theft_lib,
 	include_directories: include_directories('inc/'),
 )
+
+pkg = import('pkgconfig')
+pkg.generate(theft_lib)
 
 install_headers(
 	'inc/theft_types.h',

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: ISC
+// SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
 #include "theft.h"
 #include "theft_types_internal.h"
 

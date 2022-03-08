@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: ISC
+// SPDX-FileCopyrightText: 2022 Ayman El Didi
 #ifndef POLYFILL_H
 #define POLYFILL_H
 

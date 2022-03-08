@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: ISC
+// SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
 #ifndef THEFT_TYPES_INTERNAL_H
 #define THEFT_TYPES_INTERNAL_H
 

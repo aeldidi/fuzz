@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: ISC
+// SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
 #include "test_theft.h"
 
 /* Add all the definitions that need to be in the test runner's main file. */
