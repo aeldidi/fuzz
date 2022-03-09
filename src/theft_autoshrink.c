@@ -253,8 +253,8 @@ theft_autoshrink_free_bit_pool(
 		struct theft* t, struct autoshrink_bit_pool* pool)
 {
 	if (t) {
-		assert(t->prng.bit_pool ==
-				NULL); // don't free while still in use
+		// don't free while still in use
+		assert(t->prng.bit_pool == NULL);
 	}
 	assert(pool);
 	assert(pool->bits);

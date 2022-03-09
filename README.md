@@ -93,7 +93,8 @@ License
 
 Theft is made availible under the ISC license, however it contains
 implementations of the [Mersenne Twister][mt] PRNG and the [FNV-1a][fnv]
-hashing algorithm - these are licensed as TODO.
+hashing algorithm - these are licensed as [BSD-3-Clause][bsd3] and [CC0][cc0]
+respectively.
 
 The tests make use of the [greatest][] testing library, which is also availible
 under the ISC license.
@@ -101,3 +102,5 @@ under the ISC license.
 [greatest]: https://github.com/silentbicycle/greatest
 [mt]: http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
 [fnv]: http://www.isthe.com/chongo/tech/comp/fnv/
+[bsd3]: https://opensource.org/licenses/BSD-3-Clause
+[cc0]: https://creativecommons.org/share-your-work/public-domain/cc0/

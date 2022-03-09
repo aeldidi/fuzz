@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-FileCopyrightText: 2004 Makoto Matsumoto and Takuji Nishimura
+
 /* 
    A C-program for MT19937-64 (2004/9/29 version).
    Coded by Takuji Nishimura and Makoto Matsumoto.
@@ -7,36 +10,6 @@
 
    Before using, initialize the state by using init_genrand64(seed)  
    or init_by_array64(init_key, key_length).
-
-   Copyright (C) 2004, Makoto Matsumoto and Takuji Nishimura,
-   All rights reserved.                          
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions
-   are met:
-
-     1. Redistributions of source code must retain the above copyright
-        notice, this list of conditions and the following disclaimer.
-
-     2. Redistributions in binary form must reproduce the above copyright
-        notice, this list of conditions and the following disclaimer in the
-        documentation and/or other materials provided with the distribution.
-
-     3. The names of its contributors may not be used to endorse or promote 
-        products derived from this software without specific prior written 
-        permission.
-
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
    References:
    T. Nishimura, ``Tables of 64-bit Mersenne Twisters''
@@ -60,6 +33,7 @@
  * Also, the functions in the module's public interface have
  * been prefixed with "theft_rng_". */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "theft_rng.h"
@@ -104,12 +78,10 @@ theft_rng_reset(struct theft_rng* mt, uint64_t seed)
 	mt->mt[0]    = seed;
 	uint16_t mti = 0;
 	for (mti = 1; mti < NN; mti++) {
-		mt->mt[mti] = (6364136223846793005ULL *
-						(mt->mt[mti - 1] ^
-								(mt->mt[mti - 1] >>
-										62)) +
-				mti);
+		uint64_t tmp = (mt->mt[mti - 1] ^ (mt->mt[mti - 1] >> 62));
+		mt->mt[mti]  = 6364136223846793005ULL * tmp + mti;
 	}
+
 	mt->mti = mti;
 }
 
