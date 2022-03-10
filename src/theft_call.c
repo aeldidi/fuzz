@@ -16,9 +16,12 @@
 enum theft_trial_res
 theft_call(struct theft* t, void** args)
 {
-	if (!POLYFILL_HAVE_FORK || !t->fork.enable) {
+	if (!t->fork.enable) {
 		return theft_call_inner(t, args);
 	}
+
+	// We should've bailed if we don't have fork a long time ago.
+	assert(POLYFILL_HAVE_FORK);
 
 	struct timespec tv = {.tv_nsec = 1};
 	if (-1 == pipe(t->workers[0].fds)) {
@@ -75,7 +78,7 @@ theft_call(struct theft* t, void** args)
 				THEFT_HOOK_FORK_POST_ERROR) {
 			uint8_t byte = (uint8_t)THEFT_TRIAL_ERROR;
 			ssize_t wr   = write(out_fd, (const void*)&byte,
-					  sizeof(byte));
+                                        sizeof(byte));
 			(void)wr;
 			exit(EXIT_FAILURE);
 		}

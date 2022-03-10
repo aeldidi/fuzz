@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "polyfill.h"
 #include "theft.h"
 #include "theft_run.h"
 #include "theft_types_internal.h"
@@ -25,6 +26,10 @@ theft_run(const struct theft_run_config* cfg)
 {
 	if (cfg == NULL) {
 		return THEFT_RUN_ERROR_BAD_ARGS;
+	}
+
+	if (cfg->fork.enable && !POLYFILL_HAVE_FORK) {
+		return THEFT_RUN_SKIP;
 	}
 
 	struct theft* t = NULL;

@@ -11,6 +11,7 @@ test_srcs = files(
 	'test_char_array.c',
 	'test_theft.c',
 	'test_theft_bloom.c',
+	'test_theft_no_fork.c',
 )
 
 test_theft_exe = executable('test_theft',

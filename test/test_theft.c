@@ -16,5 +16,6 @@ main(int argc, char** argv)
 	RUN_SUITE(error);
 	RUN_SUITE(integration);
 	RUN_SUITE(char_array);
+	RUN_SUITE(no_fork);
 	GREATEST_MAIN_END(); /* display results */
 }

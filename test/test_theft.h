@@ -16,5 +16,6 @@ SUITE_EXTERN(bloom);
 SUITE_EXTERN(error);
 SUITE_EXTERN(integration);
 SUITE_EXTERN(char_array);
+SUITE_EXTERN(no_fork);
 
 #endif
