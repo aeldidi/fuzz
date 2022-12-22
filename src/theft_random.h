@@ -3,8 +3,10 @@
 #ifndef THEFT_RANDOM_H
 #define THEFT_RANDOM_H
 
-#include "theft.h"
-#include "theft_autoshrink.h"
+#include <inttypes.h>
+
+struct theft;
+struct autoshrink_bit_pool;
 
 /* Inject a bit pool for autoshrinking -- Get the random bit stream from
  * it, rather than the PRNG, because we'll shrink by shrinking the bit

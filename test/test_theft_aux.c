@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "test_theft.h"
+#include <assert.h>
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+#include "greatest.h"
+#include "theft.h"
 
 struct a_squared_env {
 	struct theft_print_trial_result_env print_env;
@@ -8,7 +14,7 @@ struct a_squared_env {
 };
 
 /* Property: a^2 <= 12345 */
-static enum theft_trial_res
+static int
 prop_a_squared_lte_fixed(struct theft* t, void* arg1)
 {
 	void* arg = (void*)arg1;
@@ -17,10 +23,10 @@ prop_a_squared_lte_fixed(struct theft* t, void* arg1)
 	uint16_t     b  = 12345;
 	const size_t aa = a * a;
 
-	return (aa <= b) ? THEFT_TRIAL_PASS : THEFT_TRIAL_FAIL;
+	return (aa <= b) ? THEFT_RESULT_OK : THEFT_RESULT_FAIL;
 }
 
-static enum theft_hook_trial_post_res
+static int
 fixed_expected_failure_trial_post(
 		const struct theft_hook_trial_post_info* info, void* penv)
 {
@@ -34,7 +40,7 @@ fixed_expected_failure_trial_post(
 	}
 
 	/* Set found if the min failure is found. */
-	if (info->result == THEFT_TRIAL_FAIL) {
+	if (info->result == THEFT_RESULT_FAIL) {
 		int8_t a = *(int8_t*)info->args[0];
 		//printf("FAILURE: %d\n", a);
 		if (a == 112 || a == -112) { // min failure: 112 * 112 > 12345
@@ -91,13 +97,13 @@ a_squared_lte_fixed(void)
 					},
 	};
 
-	ASSERT_EQ_FMTm("should find counter-examples", THEFT_RUN_FAIL,
+	ASSERT_EQ_FMTm("should find counter-examples", THEFT_RESULT_FAIL,
 			theft_run(&cfg), "%d");
 	ASSERTm("Should shrink to a minimal case", env.found);
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 prop_a_squared_lt_b(struct theft* t, void* arg1, void* arg2)
 {
 	(void)t;
@@ -110,10 +116,10 @@ prop_a_squared_lt_b(struct theft* t, void* arg1, void* arg2)
 				a, b, aa < b, aa);
 	}
 
-	return (aa <= b) ? THEFT_TRIAL_PASS : THEFT_TRIAL_FAIL;
+	return (aa <= b) ? THEFT_RESULT_OK : THEFT_RESULT_FAIL;
 }
 
-static enum theft_hook_trial_post_res
+static int
 expected_failure_trial_post(
 		const struct theft_hook_trial_post_info* info, void* penv)
 {
@@ -128,7 +134,7 @@ expected_failure_trial_post(
 				(void*)info->args[0], b, (void*)info->args[1]);
 	}
 
-	if (info->result == THEFT_TRIAL_FAIL) {
+	if (info->result == THEFT_RESULT_FAIL) {
 		int8_t   a = *(int8_t*)info->args[0];
 		uint16_t b = *(uint16_t*)info->args[1];
 		if (a == 1 && b == 0) {
@@ -188,19 +194,19 @@ a_squared_lt_b(void)
 					},
 	};
 
-	ASSERT_EQ_FMTm("should find counter-examples", THEFT_RUN_FAIL,
+	ASSERT_EQ_FMTm("should find counter-examples", THEFT_RESULT_FAIL,
 			theft_run(&cfg), "%d");
 	ASSERTm("Should shrink to a minimal case", env.found);
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 prop_pass(struct theft* t, void* arg1)
 {
 	uint64_t* v = (uint64_t*)arg1;
 	(void)t;
 	(void)v;
-	return THEFT_TRIAL_PASS;
+	return THEFT_RESULT_OK;
 }
 
 TEST
@@ -214,7 +220,7 @@ pass_autoscaling(void)
 			.trials    = 1000000,
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
 	/* This test needs to be checked by visual inspection -- it should
      * look something like this:
@@ -237,7 +243,7 @@ pass_autoscaling(void)
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 prop_check_and_update_magic(struct theft* t, void* arg1)
 {
 	uint64_t* unused = (uint64_t*)arg1;
@@ -245,11 +251,11 @@ prop_check_and_update_magic(struct theft* t, void* arg1)
 
 	uint64_t* magic = (uint64_t*)theft_hook_get_env(t);
 	if (magic == NULL || *magic != 0xABED) {
-		return THEFT_TRIAL_FAIL;
+		return THEFT_RESULT_FAIL;
 	}
 
 	*magic = 0xfa1afel; /* update the magic value */
-	return THEFT_TRIAL_PASS;
+	return THEFT_RESULT_OK;
 }
 
 TEST
@@ -268,10 +274,10 @@ get_hook_env(void)
 							.env = (void*)&magic,
 					},
 	};
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMTm("should get pointer to the magic value", THEFT_RUN_PASS,
-			res, "%d");
+	ASSERT_EQ_FMTm("should get pointer to the magic value",
+			THEFT_RESULT_OK, res, "%d");
 	ASSERT_EQ_FMTm("should update the magic value", (uint64_t)0xfa1afel,
 			magic, "%" PRIx64);
 
@@ -284,23 +290,23 @@ struct gap_env {
 	bool     used;
 };
 
-static enum theft_alloc_res
+static int
 gap_alloc(struct theft* t, void* info_env, void** output)
 {
 	(void)info_env;
 	struct gap_env* env = (struct gap_env*)theft_hook_get_env(t);
 	if (env->tag != 'G') {
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 	uint64_t* res = malloc(sizeof(*res));
 	if (res == NULL) {
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 	*res      = theft_random_bits(t, 64) % env->limit;
 	env->used = true;
 
 	*output = res;
-	return THEFT_ALLOC_OK;
+	return THEFT_RESULT_OK;
 }
 
 static void
@@ -329,10 +335,9 @@ gen_and_print(void)
 			.limit = 1000,
 	};
 
-	enum theft_generate_res res =
-			theft_generate(stdout, seed, &gap_info, &env);
+	int res = theft_generate(stdout, seed, &gap_info, &env);
 
-	ASSERT_EQ_FMT(THEFT_GENERATE_OK, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_OK, res, "%d");
 	ASSERT(env.used);
 
 	PASS();

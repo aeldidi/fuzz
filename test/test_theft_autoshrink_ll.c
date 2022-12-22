@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "test_theft.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "test_theft_autoshrink_ll.h"
+#include "theft.h"
 
 static void ll_free(void* instance, void* env);
 static void ll_print(FILE* f, const void* instance, void* env);
 
 /* Generate a linked list of uint8_t values. Before each
  * link, get 3 random bits -- if 0, then end the list. */
-static enum theft_alloc_res
+static int
 ll_alloc(struct theft* t, void* env, void** instance)
 {
 	(void)env;
@@ -20,7 +24,7 @@ ll_alloc(struct theft* t, void* env, void** instance)
 		struct ll* link = calloc(1, sizeof(struct ll));
 		if (link == NULL) {
 			ll_free(res, NULL);
-			return THEFT_ALLOC_ERROR;
+			return THEFT_RESULT_ERROR;
 		}
 
 		link->tag   = 'L';
@@ -41,7 +45,7 @@ ll_alloc(struct theft* t, void* env, void** instance)
 		ll_print(stdout, res, NULL);
 		printf("\n");
 	}
-	return THEFT_ALLOC_OK;
+	return THEFT_RESULT_OK;
 }
 
 static void

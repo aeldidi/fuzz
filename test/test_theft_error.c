@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "test_theft.h"
+#include <assert.h>
+#include <inttypes.h>
+
+#include "greatest.h"
+#include "theft.h"
 
 enum behavior {
 	BEH_NONE,
@@ -17,15 +21,15 @@ struct err_env {
 	bool          shrinking;
 };
 
-static enum theft_trial_res
+static int
 prop_bits_gt_0(struct theft* t, void* arg1)
 {
 	uint8_t* x = (uint8_t*)arg1;
 	(void)t;
-	return (*x > 0 ? THEFT_TRIAL_PASS : THEFT_TRIAL_FAIL);
+	return (*x > 0 ? THEFT_RESULT_OK : THEFT_RESULT_FAIL);
 }
 
-static enum theft_alloc_res
+static int
 bits_alloc(struct theft* t, void* penv, void** output)
 {
 	assert(penv);
@@ -33,27 +37,27 @@ bits_alloc(struct theft* t, void* penv, void** output)
 	assert(env->tag == 'e');
 
 	if (env->b == BEH_SKIP_ALL) {
-		return THEFT_ALLOC_SKIP;
+		return THEFT_RESULT_SKIP;
 	} else if (env->b == BEH_ERROR_ALL) {
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 
 	if (env->shrinking) {
 		env->shrinking = false;
 		if (env->b == BEH_SKIP_DURING_AUTOSHRINK) {
-			return THEFT_ALLOC_SKIP;
+			return THEFT_RESULT_SKIP;
 		} else if (env->b == BEH_FAIL_DURING_AUTOSHRINK) {
-			return THEFT_ALLOC_ERROR;
+			return THEFT_RESULT_ERROR;
 		}
 	}
 
 	uint8_t* res = calloc(1, sizeof(*res));
 	if (res == NULL) {
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 	*res    = theft_random_bits(t, 6);
 	*output = res;
-	return THEFT_ALLOC_OK;
+	return THEFT_RESULT_OK;
 }
 
 TEST
@@ -84,19 +88,19 @@ alloc_returns_skip(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_SKIP, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_SKIP, res, "%d");
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 prop_should_never_run(struct theft* t, void* arg1, void* arg2)
 {
 	(void)t;
 	(void)arg1;
 	(void)arg2;
-	return THEFT_TRIAL_ERROR;
+	return THEFT_RESULT_ERROR;
 }
 
 /* Check that arguments which have already been generated
@@ -131,9 +135,9 @@ second_alloc_returns_skip(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_SKIP, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_SKIP, res, "%d");
 	PASS();
 }
 
@@ -165,9 +169,9 @@ alloc_returns_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -201,9 +205,9 @@ second_alloc_returns_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -247,9 +251,9 @@ alloc_returns_skip_during_autoshrink(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_FAIL, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_FAIL, res, "%d");
 	PASS();
 }
 
@@ -282,9 +286,9 @@ alloc_returns_error_during_autoshrink(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -341,9 +345,9 @@ error_from_both_autoshrink_and_shrink_cb(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 	ASSERT_ENUM_EQm("defining shrink and autoshrink should error",
-			THEFT_RUN_ERROR_BAD_ARGS, res, theft_run_res_str);
+			THEFT_RESULT_ERROR, res, theft_run_res_str);
 	PASS();
 }
 
@@ -372,9 +376,9 @@ shrinking_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -416,8 +420,8 @@ run_pre_hook_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -459,8 +463,8 @@ run_post_hook_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -502,12 +506,12 @@ trial_pre_hook_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
-static enum theft_hook_trial_post_res
+static int
 hook_trial_post_error(
 		const struct theft_hook_trial_post_info* info, void* penv)
 {
@@ -546,8 +550,8 @@ trial_post_hook_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -590,8 +594,8 @@ shrink_pre_hook_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -634,8 +638,8 @@ shrink_post_hook_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -680,18 +684,18 @@ shrink_trial_post_hook_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 prop_always_skip(struct theft* t, void* arg1)
 {
 	uint8_t* x = (uint8_t*)arg1;
 	(void)t;
 	(void)x;
-	return THEFT_TRIAL_SKIP;
+	return THEFT_RESULT_SKIP;
 }
 
 TEST
@@ -722,19 +726,19 @@ trial_skip(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_SKIP, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_SKIP, res, "%d");
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 prop_always_error(struct theft* t, void* arg1)
 {
 	uint8_t* x = (uint8_t*)arg1;
 	(void)t;
 	(void)x;
-	return THEFT_TRIAL_ERROR;
+	return THEFT_RESULT_ERROR;
 }
 
 TEST
@@ -765,21 +769,21 @@ trial_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
 static bool trial_error_during_autoshrink_flag = false;
 
-static enum theft_trial_res
+static int
 prop_error_if_autoshrinking(struct theft* t, void* arg1)
 {
 	uint8_t* x = (uint8_t*)arg1;
 	(void)t;
 	if (trial_error_during_autoshrink_flag) {
-		return THEFT_TRIAL_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 	return prop_bits_gt_0(t, x);
 }
@@ -824,9 +828,9 @@ trial_error_during_autoshrink(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
+	int res = theft_run(&cfg);
 
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
@@ -870,12 +874,12 @@ counterexample_error(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 prop_ignore_input_fail_then_pass(struct theft* t, void* arg1)
 {
 	uint8_t* x = (uint8_t*)arg1;
@@ -883,10 +887,10 @@ prop_ignore_input_fail_then_pass(struct theft* t, void* arg1)
 	(void)x;
 	static size_t runs = 0;
 	runs++;
-	return (runs == 1 ? THEFT_TRIAL_FAIL : THEFT_TRIAL_PASS);
+	return (runs == 1 ? THEFT_RESULT_FAIL : THEFT_RESULT_OK);
 }
 
-static enum theft_hook_trial_post_res
+static int
 trial_post_repeat_once(
 		const struct theft_hook_trial_post_info* info, void* penv)
 {
@@ -922,8 +926,8 @@ fail_but_pass_when_rerun(void)
 					},
 	};
 
-	enum theft_run_res res = theft_run(&cfg);
-	ASSERT_EQ_FMT(THEFT_RUN_ERROR, res, "%d");
+	int res = theft_run(&cfg);
+	ASSERT_EQ_FMT(THEFT_RESULT_ERROR, res, "%d");
 	PASS();
 }
 

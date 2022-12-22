@@ -4,6 +4,7 @@
 #define THEFT_AUTOSHRINK_H
 
 #include <limits.h>
+
 #include "theft_types_internal.h"
 
 #define AUTOSHRINK_ENV_TAG      0xa5
@@ -151,11 +152,11 @@ void theft_autoshrink_bit_pool_random(struct theft* t,
 
 void theft_autoshrink_get_real_args(struct theft* t, void** dst, void** src);
 
-void theft_autoshrink_update_model(struct theft* t, uint8_t arg_id,
-		enum theft_trial_res res, uint8_t adjustment);
+void theft_autoshrink_update_model(
+		struct theft* t, uint8_t arg_id, int res, uint8_t adjustment);
 
 /* Alloc callback, with autoshrink_env passed along. */
-enum theft_alloc_res theft_autoshrink_alloc(
+int theft_autoshrink_alloc(
 		struct theft* t, struct autoshrink_env* env, void** instance);
 
 theft_hash theft_autoshrink_hash(struct theft* t, const void* instance,

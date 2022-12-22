@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "test_theft.h"
-#include "theft_random.h"
+#include <inttypes.h>
+#include <stdbool.h>
 
-/* These are included to allocate a valid theft handle, but
- * this file is only testing its random number generation
- * and buffering. */
+#include "greatest.h"
+#include "theft_random.h"
+// These are included to allocate a valid theft handle, but this file is only
+// testing its random number generation and buffering.
 #include "test_theft_autoshrink_ll.h"
+#include "theft.h"
 #include "theft_run.h"
 
-static enum theft_trial_res
+static int
 unused(struct theft* t, void* arg1)
 {
 	struct ll* v = (struct ll*)arg1;
 	(void)t;
 	(void)v;
-	return THEFT_TRIAL_ERROR;
+	return THEFT_RESULT_ERROR;
 }
 
 static struct theft*
@@ -49,14 +51,14 @@ prng_should_return_same_series_from_same_seeds(void)
 	/* Set for deterministic start */
 	theft_random_set_seed(t, 0xabad5eed);
 	for (int i = 0; i < 8; i++) {
-		seeds[i] = theft_random(t);
+		seeds[i] = theft_random_bits(t, 64);
 	}
 
 	/* Populate value tables. */
 	for (int s = 0; s < 8; s++) {
 		theft_random_set_seed(t, seeds[s]);
 		for (int i = 0; i < 8; i++) {
-			values[s][i] = theft_random(t);
+			values[s][i] = theft_random_bits(t, 64);
 		}
 	}
 
@@ -64,7 +66,7 @@ prng_should_return_same_series_from_same_seeds(void)
 	for (int s = 0; s < 8; s++) {
 		theft_random_set_seed(t, seeds[s]);
 		for (int i = 0; i < 8; i++) {
-			ASSERT_EQ(values[s][i], theft_random(t));
+			ASSERT_EQ(values[s][i], theft_random_bits(t, 64));
 		}
 	}
 	theft_run_free(t);
@@ -81,10 +83,10 @@ basic_sampling(uint64_t limit)
 
 	for (uint64_t seed = 0; seed < limit; seed++) {
 		theft_random_set_seed(t, seed);
-		uint64_t num = theft_random(t);
+		uint64_t num = theft_random_bits(t, 64);
 
 		theft_random_set_seed(t, seed);
-		uint64_t num2 = theft_random(t);
+		uint64_t num2 = theft_random_bits(t, 64);
 
 		ASSERT_EQ_FMT(num, num2, "%" PRIx64);
 	}
@@ -103,7 +105,7 @@ bit_sampling_two_bytes(uint64_t limit)
 
 	for (uint64_t seed = 0; seed < limit; seed++) {
 		theft_random_set_seed(t, seed);
-		uint16_t a = (uint16_t)(theft_random(t) & 0xFFFF);
+		uint16_t a = (uint16_t)theft_random_bits(t, 16);
 
 		theft_random_set_seed(t, seed);
 		uint64_t b0 = 0;
@@ -131,8 +133,8 @@ bit_sampling_bytes(uint64_t limit)
 
 	for (uint64_t seed = 0; seed < limit; seed++) {
 		theft_random_set_seed(t, seed);
-		uint64_t a0 = theft_random(t);
-		uint64_t a1 = theft_random(t);
+		uint64_t a0 = theft_random_bits(t, 64);
+		uint64_t a1 = theft_random_bits(t, 64);
 
 		theft_random_set_seed(t, seed);
 		uint64_t b0 = 0;
@@ -166,8 +168,8 @@ bit_sampling_odd_sizes(uint64_t limit)
 
 	for (uint64_t seed = 0; seed < limit; seed++) {
 		theft_random_set_seed(t, seed);
-		uint64_t a0 = theft_random(t);
-		uint64_t a1 = theft_random(t);
+		uint64_t a0 = theft_random_bits(t, 64);
+		uint64_t a1 = theft_random_bits(t, 64);
 
 		theft_random_set_seed(t, seed);
 		uint64_t b_11 = theft_random_bits(t, 11);

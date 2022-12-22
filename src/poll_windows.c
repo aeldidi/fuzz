@@ -1,144 +1,24 @@
-// SPDX-License-Identifier: ISC
-// SPDX-FileCopyrightText: 2022 Ayman El Didi
-
-extern int errno;
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
-#if defined(_WIN32)
-#include <fcntl.h>
-#include <io.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <time.h>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <winsock2.h>
-#undef WIN32_LEAN_AND_MEAN
-
-#include "poll_windows.h"
-#include "polyfill.h"
-
-int
-pipe(int pipefd[2])
-{
-	return _pipe(pipefd, BUFSIZ, O_BINARY);
-}
-
-int
-nanosleep(const struct timespec* req, struct timespec* rem)
-{
-	(void)rem;
-	time_t ms = (req->tv_sec * 1000) + (req->tv_nsec / 1000000);
-	if (ms > UINT32_MAX) {
-		Sleep(UINT32_MAX);
-		return 0;
-	}
-	Sleep((DWORD)ms);
-	return 0;
-}
-
-int
-fork()
-{
-	errno = ENOSYS;
-	return -1;
-}
-
-int
-kill(int pid, int sig)
-{
-	(void)pid;
-	(void)sig;
-	errno = ENOSYS;
-	return -1;
-}
-
-int
-wait(int* status)
-{
-	(void)status;
-	errno = ENOSYS;
-	return -1;
-}
-
-int
-waitpid(int pid, int* status, int options)
-{
-	(void)pid;
-	(void)status;
-	(void)options;
-	errno = ENOSYS;
-	return -1;
-}
-
-int
-sigaction(int signum, const struct sigaction* act, struct sigaction* oldact)
-{
-	(void)signum;
-	(void)act;
-	(void)oldact;
-	errno = ENOSYS;
-	return -1;
-}
-
-int
-setrlimit(int resource, const struct rlimit* rlim)
-{
-	(void)resource;
-	(void)rlim;
-	errno = ENOSYS;
-	return -1;
-}
-
-int
-getrlimit(int resource, struct rlimit* rlim)
-{
-	(void)resource;
-	(void)rlim;
-	return -1;
-}
-
-int
-gettimeofday(struct timeval* tp, struct timezone* tzp)
-{
-	(void)tzp;
-	static const uint64_t EPOCH = ((uint64_t)116444736000000000ULL);
-
-	SYSTEMTIME system_time = {0};
-	FILETIME   file_time   = {0};
-	uint64_t   time        = 0;
-
-	GetSystemTime(&system_time);
-	SystemTimeToFileTime(&system_time, &file_time);
-	time = ((uint64_t)file_time.dwLowDateTime);
-	time += ((uint64_t)file_time.dwHighDateTime) << 32;
-
-	tp->tv_sec  = (long)((time - EPOCH) / 10000000L);
-	tp->tv_usec = (long)(system_time.wMilliseconds * 1000);
-	return 0;
-}
-
-// Public domain
-//
-// poll(2) emulation for Windows from LibreSSL
-//
-// This emulates just-enough poll functionality on Windows to work in the
-// context of the openssl(1) program. This is not a replacement for
-// POSIX.1-2001 poll(2), though it may come closer than I care to admit.
-//
-// Dongsheng Song <dongsheng.song@gmail.com>
-// Brent Cook <bcook@openbsd.org>
+/*
+ * Public domain
+ *
+ * poll(2) emulation for Windows
+ *
+ * This emulates just-enough poll functionality on Windows to work in the
+ * context of the openssl(1) program. This is not a replacement for
+ * POSIX.1-2001 poll(2), though it may come closer than I care to admit.
+ *
+ * Dongsheng Song <dongsheng.song@gmail.com>
+ * Brent Cook <bcook@openbsd.org>
+ */
 
 #include <conio.h>
 #include <errno.h>
 #include <io.h>
+#include <poll.h>
 #include <ws2tcpip.h>
 
 static int
-conn_is_closed(SOCKET fd)
+conn_is_closed(int fd)
 {
 	char buf[1];
 	int  ret = recv(fd, buf, 1, MSG_PEEK);
@@ -155,26 +35,26 @@ conn_is_closed(SOCKET fd)
 }
 
 static int
-conn_has_oob_data(SOCKET fd)
+conn_has_oob_data(int fd)
 {
 	char buf[1];
 	return (recv(fd, buf, 1, MSG_PEEK | MSG_OOB) == 1);
 }
 
 static int
-is_socket(SOCKET fd)
+is_socket(int fd)
 {
 	if (fd < 3)
 		return 0;
 	WSANETWORKEVENTS events;
-	return (WSAEnumNetworkEvents(fd, NULL, &events) == 0);
+	return (WSAEnumNetworkEvents((SOCKET)fd, NULL, &events) == 0);
 }
 
-static SHORT
-compute_select_revents(SOCKET fd, short events, fd_set* rfds, fd_set* wfds,
-		fd_set* efds)
+static int
+compute_select_revents(
+		int fd, short events, fd_set* rfds, fd_set* wfds, fd_set* efds)
 {
-	SHORT rc = 0;
+	int rc = 0;
 
 	if ((events & (POLLIN | POLLRDNORM | POLLRDBAND)) &&
 			FD_ISSET(fd, rfds)) {
@@ -198,24 +78,25 @@ compute_select_revents(SOCKET fd, short events, fd_set* rfds, fd_set* wfds,
 	return rc;
 }
 
-static SHORT
+static int
 compute_wait_revents(HANDLE h, short events, int object, int wait_rc)
 {
-	SHORT        rc = 0;
+	int          rc = 0;
 	INPUT_RECORD record;
 	DWORD        num_read;
 
-	// Assume we can always write to file handles (probably a bad
-	// assumption but works for now, at least it doesn't block).
-	if (events & (POLLOUT | POLLWRNORM)) {
+	/*
+	 * Assume we can always write to file handles (probably a bad
+	 * assumption but works for now, at least it doesn't block).
+	 */
+	if (events & (POLLOUT | POLLWRNORM))
 		rc |= POLLOUT;
-	}
 
 	/*
 	 * Check if this handle was signaled by WaitForMultipleObjects
 	 */
-	if ((DWORD)wait_rc >= WAIT_OBJECT_0 &&
-			(object == (int)(wait_rc - WAIT_OBJECT_0)) &&
+	if (wait_rc >= WAIT_OBJECT_0 &&
+			(object == (wait_rc - WAIT_OBJECT_0)) &&
 			(events & (POLLIN | POLLRDNORM))) {
 
 		/*
@@ -341,8 +222,8 @@ poll(struct pollfd* pfds, nfds_t nfds, int timeout_ms)
 				return -1;
 			}
 
-			handles[num_handles++] = (HANDLE)_get_osfhandle(
-					(int)pfds[i].fd);
+			handles[num_handles++] =
+					(HANDLE)_get_osfhandle(pfds[i].fd);
 		}
 	}
 
@@ -447,9 +328,3 @@ poll(struct pollfd* pfds, nfds_t nfds, int timeout_ms)
 
 	return rc;
 }
-
-#endif
-
-#if defined(__cplusplus)
-}
-#endif

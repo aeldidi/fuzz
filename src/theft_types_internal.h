@@ -5,10 +5,22 @@
 
 #include <inttypes.h>
 #include <string.h>
+
+#if !defined(_WIN32)
 #include <sys/types.h>
-#include "theft.h"
+#endif
 
 #include "polyfill.h"
+#include "theft.h"
+
+#if defined(_WIN32)
+// The LOG macro makes use of a compile-time known conditional, so we disable
+// the MSVC warning "conditional expression is constant" (4127)
+//
+// Error 4996 is the "this function is deprecated" warning for standard C
+// stuff.
+#pragma warning(disable : 4127 4996)
+#endif
 
 #define THEFT_MAX_TACTICS  ((uint32_t)-1)
 #define DEFAULT_THEFT_SEED 0xa600d64b175eedLLU

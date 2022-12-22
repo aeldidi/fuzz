@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "theft.h"
-#include "theft_types_internal.h"
-
 #include <assert.h>
+#include <stdlib.h>
+
+#if !defined(_WIN32)
+#include <sys/time.h>
+#endif
 
 #include "polyfill.h"
+#include "theft.h"
+#include "theft_types.h"
+#include "theft_types_internal.h"
 
 /* Name used when no property name is set. */
 static const char def_prop_name[] = "(anonymous)";
@@ -89,25 +94,25 @@ theft_print_trial_result(struct theft_print_trial_result_env* env,
 	char   buf[64];
 
 	switch (info->result) {
-	case THEFT_TRIAL_PASS:
+	case THEFT_RESULT_OK:
 		used = autoscale_tally(buf, sizeof(buf), 100, "PASS",
 				&env->scale_pass, '.', &env->consec_pass);
 		break;
-	case THEFT_TRIAL_FAIL:
+	case THEFT_RESULT_FAIL:
 		used             = snprintf(buf, sizeof(buf), "F");
 		env->scale_pass  = 1;
 		env->consec_pass = 0;
 		env->column      = 0;
 		break;
-	case THEFT_TRIAL_SKIP:
+	case THEFT_RESULT_SKIP:
 		used = autoscale_tally(buf, sizeof(buf), 10, "SKIP",
 				&env->scale_skip, 's', &env->consec_skip);
 		break;
-	case THEFT_TRIAL_DUP:
+	case THEFT_RESULT_DUPLICATE:
 		used = autoscale_tally(buf, sizeof(buf), 10, "DUP",
 				&env->scale_dup, 'd', &env->consec_dup);
 		break;
-	case THEFT_TRIAL_ERROR:
+	case THEFT_RESULT_ERROR:
 		used = snprintf(buf, sizeof(buf), "E");
 		break;
 	default:
@@ -125,7 +130,8 @@ theft_print_trial_result(struct theft_print_trial_result_env* env,
 
 	fprintf(f, "%s", buf);
 	fflush(f);
-	env->column += used;
+	assert(used <= UINT8_MAX);
+	env->column += (uint8_t)used;
 }
 
 enum theft_hook_trial_pre_res
@@ -137,7 +143,7 @@ theft_hook_first_fail_halt(
 				  : THEFT_HOOK_TRIAL_PRE_CONTINUE;
 }
 
-enum theft_hook_trial_post_res
+int
 theft_hook_trial_post_print_result(
 		const struct theft_hook_trial_post_info* info, void* env)
 {
@@ -222,39 +228,37 @@ struct theft_aux_print_trial_result_env {
 };
 
 const char*
-theft_run_res_str(enum theft_run_res res)
+theft_run_res_str(int res)
 {
 	switch (res) {
-	case THEFT_RUN_PASS:
+	case THEFT_RESULT_OK:
 		return "PASS";
-	case THEFT_RUN_FAIL:
+	case THEFT_RESULT_FAIL:
 		return "FAIL";
-	case THEFT_RUN_SKIP:
+	case THEFT_RESULT_SKIP:
 		return "SKIP";
-	case THEFT_RUN_ERROR:
+	case THEFT_RESULT_ERROR:
 		return "ERROR";
-	case THEFT_RUN_ERROR_MEMORY:
+	case THEFT_RESULT_ERROR_MEMORY:
 		return "ERROR_MEMORY";
-	case THEFT_RUN_ERROR_BAD_ARGS:
-		return "ERROR_BAD_ARGS";
 	default:
 		return "(matchfail)";
 	}
 }
 
 const char*
-theft_trial_res_str(enum theft_trial_res res)
+theft_trial_res_str(int res)
 {
 	switch (res) {
-	case THEFT_TRIAL_PASS:
+	case THEFT_RESULT_OK:
 		return "PASS";
-	case THEFT_TRIAL_FAIL:
+	case THEFT_RESULT_FAIL:
 		return "FAIL";
-	case THEFT_TRIAL_SKIP:
+	case THEFT_RESULT_SKIP:
 		return "SKIP";
-	case THEFT_TRIAL_DUP:
+	case THEFT_RESULT_DUPLICATE:
 		return "DUP";
-	case THEFT_TRIAL_ERROR:
+	case THEFT_RESULT_ERROR:
 		return "ERROR";
 	default:
 		return "(matchfail)";

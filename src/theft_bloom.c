@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "theft.h"
@@ -53,9 +54,9 @@ struct bloom_filter {
 struct theft_bloom {
 	const uint8_t top_block2;
 	const uint8_t min_filter2;
-	/* These start as NULL and are lazily allocated.
-     * Each block is a linked list of bloom filters, with successively
-     * larger filters appended at the front as the filters fill up. */
+	// These start as NULL and are lazily allocated.
+	// Each block is a linked list of bloom filters, with successively
+	// larger filters appended at the front as the filters fill up.
 	struct bloom_filter* blocks[];
 };
 

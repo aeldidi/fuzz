@@ -5,9 +5,9 @@
 
 #include <stdbool.h>
 
-#include "theft_trial_internal.h"
+struct theft;
 
-bool theft_trial_run(struct theft* t, enum theft_hook_trial_post_res* tpres);
+bool theft_trial_run(struct theft* t, int* post_trial_res);
 
 void theft_trial_get_args(struct theft* t, void** args);
 

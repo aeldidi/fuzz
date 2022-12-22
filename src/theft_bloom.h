@@ -3,9 +3,9 @@
 #ifndef THEFT_BLOOM_H
 #define THEFT_BLOOM_H
 
+#include <inttypes.h>
 #include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <stddef.h>
 
 /* Opaque type for bloom filter. */
 struct theft_bloom;

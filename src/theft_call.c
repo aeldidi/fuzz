@@ -1,10 +1,44 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
+#include <assert.h>
+#include <errno.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <time.h>
+
+#if defined(_WIN32)
+#include <io.h>
+#endif
+
+#if !defined(_WIN32)
+#include <sys/poll.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+
 #include "polyfill.h"
 #include "theft_autoshrink.h"
-#include "theft_call_internal.h"
+#include "theft_bloom.h"
+#include "theft_call.h"
+#include "theft_types.h"
 
-#include <time.h>
+static int theft_call_inner(struct theft* t, void** args);
+
+static int parent_handle_child_call(
+		struct theft* t, pid_t pid, struct worker_info* worker);
+
+// Returns one of:
+// THEFT_HOOK_FORK_POST_ERROR
+// THEFT_HOOK_FORK_POST_CONTINUE
+static int run_fork_post_hook(struct theft* t, void** args);
+
+static bool step_waitpid(struct theft* t);
+
+static bool wait_for_exit(struct theft* t, struct worker_info* worker,
+		size_t timeout, size_t kill_timeout);
+
 #define LOG_CALL 0
 
 #define MAX_FORK_RETRIES 10
@@ -13,7 +47,7 @@
 /* Actually call the property function. Its number of arguments is not
  * constrained by the typedef, but will be defined at the call site
  * here. (If info->arity is wrong, it will probably crash.) */
-enum theft_trial_res
+int
 theft_call(struct theft* t, void** args)
 {
 	if (!t->fork.enable) {
@@ -21,15 +55,15 @@ theft_call(struct theft* t, void** args)
 	}
 
 	// We should've bailed if we don't have fork a long time ago.
-	assert(POLYFILL_HAVE_FORK);
+	assert(THEFT_POLYFILL_HAVE_FORK);
 
 	struct timespec tv = {.tv_nsec = 1};
 	if (-1 == pipe(t->workers[0].fds)) {
-		return THEFT_TRIAL_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 
-	enum theft_trial_res res = THEFT_TRIAL_ERROR;
-	pid_t                pid = -1;
+	int   res = THEFT_RESULT_ERROR;
+	pid_t pid = -1;
 	for (;;) {
 		pid = fork();
 		if (pid != -1) {
@@ -38,7 +72,7 @@ theft_call(struct theft* t, void** args)
 
 		if (errno != EAGAIN) {
 			perror("fork");
-			return THEFT_TRIAL_ERROR;
+			return THEFT_RESULT_ERROR;
 		}
 
 		// If we get EAGAIN, then wait for terminated child processes a
@@ -46,18 +80,18 @@ theft_call(struct theft* t, void** args)
 		// RLIMIT_NPROC.
 		const int fork_errno = errno;
 		if (!step_waitpid(t)) {
-			return THEFT_TRIAL_ERROR;
+			return THEFT_RESULT_ERROR;
 		}
 
 		if (-1 == nanosleep(&tv, NULL)) {
 			perror("nanosleep");
-			return THEFT_TRIAL_ERROR;
+			return THEFT_RESULT_ERROR;
 		}
 
 		if (tv.tv_nsec >= (1L << MAX_FORK_RETRIES)) {
 			errno = fork_errno;
 			perror("fork");
-			return THEFT_TRIAL_ERROR;
+			return THEFT_RESULT_ERROR;
 		}
 
 		errno = 0;
@@ -68,7 +102,7 @@ theft_call(struct theft* t, void** args)
 	if (pid == -1) {
 		close(t->workers[0].fds[0]);
 		close(t->workers[0].fds[1]);
-		return THEFT_TRIAL_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 
 	if (pid == 0) { /* child */
@@ -76,7 +110,7 @@ theft_call(struct theft* t, void** args)
 		int out_fd = t->workers[0].fds[1];
 		if (run_fork_post_hook(t, args) ==
 				THEFT_HOOK_FORK_POST_ERROR) {
-			uint8_t byte = (uint8_t)THEFT_TRIAL_ERROR;
+			uint8_t byte = (uint8_t)THEFT_RESULT_ERROR;
 			ssize_t wr   = write(out_fd, (const void*)&byte,
                                         sizeof(byte));
 			(void)wr;
@@ -85,26 +119,26 @@ theft_call(struct theft* t, void** args)
 		res          = theft_call_inner(t, args);
 		uint8_t byte = (uint8_t)res;
 		ssize_t wr   = write(out_fd, (const void*)&byte, sizeof(byte));
-		exit(wr == 1 && res == THEFT_TRIAL_PASS ? EXIT_SUCCESS
-							: EXIT_FAILURE);
-	} else { /* parent */
-		close(t->workers[0].fds[1]);
-		t->workers[0].pid = pid;
+		exit(wr == 1 && res == THEFT_RESULT_OK ? EXIT_SUCCESS
+						       : EXIT_FAILURE);
+	}
 
-		t->workers[0].state = WS_ACTIVE;
-		res = parent_handle_child_call(t, pid, &t->workers[0]);
-		close(t->workers[0].fds[0]);
-		t->workers[0].state = WS_INACTIVE;
+	// parent
+	close(t->workers[0].fds[1]);
+	t->workers[0].pid = pid;
 
-		if (!step_waitpid(t)) {
-			return THEFT_TRIAL_ERROR;
-		}
-		return res;
+	t->workers[0].state = WS_ACTIVE;
+	res                 = parent_handle_child_call(t, pid, &t->workers[0]);
+	close(t->workers[0].fds[0]);
+	t->workers[0].state = WS_INACTIVE;
+
+	if (!step_waitpid(t)) {
+		return THEFT_RESULT_ERROR;
 	}
 	return res;
 }
 
-static enum theft_trial_res
+static int
 parent_handle_child_call(
 		struct theft* t, pid_t pid, struct worker_info* worker)
 {
@@ -112,12 +146,13 @@ parent_handle_child_call(
 	struct pollfd pfd[1] = {
 			{.fd = fd, .events = POLLIN},
 	};
-	const int timeout = t->fork.timeout;
-	int       res     = 0;
+	assert(t->fork.timeout <= INT_MAX);
+	const size_t timeout = t->fork.timeout;
+	int          res     = 0;
 	for (;;) {
 		struct timeval tv_pre = {0, 0};
 		gettimeofday(&tv_pre, NULL);
-		res = poll(pfd, 1, (timeout == 0 ? -1 : timeout));
+		res = poll(pfd, 1, (timeout == 0 ? -1 : (int)timeout));
 		struct timeval tv_post = {0, 0};
 		gettimeofday(&tv_post, NULL);
 
@@ -137,7 +172,7 @@ parent_handle_child_call(
 				errno = 0;
 				continue;
 			} else {
-				return THEFT_TRIAL_ERROR;
+				return THEFT_RESULT_ERROR;
 			}
 		} else {
 			break;
@@ -153,7 +188,7 @@ parent_handle_child_call(
 				kill_signal);
 		assert(pid != -1); /* do not do this. */
 		if (-1 == kill(pid, kill_signal)) {
-			return THEFT_TRIAL_ERROR;
+			return THEFT_RESULT_ERROR;
 		}
 
 		/* Check if kill's signal made the child process terminate (or
@@ -167,32 +202,32 @@ parent_handle_child_call(
 				(t->fork.exit_timeout == 0 ? THEFT_DEF_EXIT_TIMEOUT_MSEC
 							   : t->fork.exit_timeout);
 
-		/* After sending the signal to the timed out process,
-         * give it timeout_msec to actually exit (in case a custom
-         * signal is triggering some sort of cleanup) before sending
-         * SIGKILL and waiting up to kill_time it to change state. */
+		// After sending the signal to the timed out process,
+		// give it timeout_msec to actually exit (in case a custom
+		// signal is triggering some sort of cleanup) before sending
+		// SIGKILL and waiting up to kill_time it to change state.
 		if (!wait_for_exit(t, worker, timeout_msec, kill_time)) {
-			return THEFT_TRIAL_ERROR;
+			return THEFT_RESULT_ERROR;
 		}
 
-		/* If the child still exited successfully, then consider it a
-         * PASS, even though it exceeded the timeout. */
+		// If the child still exited successfully, then consider it a
+		// PASS, even though it exceeded the timeout.
 		if (worker->state == WS_STOPPED) {
 			const int st = worker->wstatus;
 			LOG(2 - LOG_CALL, "exited? %d, exit_status %d\n",
 					WIFEXITED(st), WEXITSTATUS(st));
 			if (WIFEXITED(st) && WEXITSTATUS(st) == EXIT_SUCCESS) {
-				return THEFT_TRIAL_PASS;
+				return THEFT_RESULT_OK;
 			}
 		}
 
-		return THEFT_TRIAL_FAIL;
+		return THEFT_RESULT_FAIL;
 	} else {
 		/* As long as the result isn't a timeout, the worker can
          * just be cleaned up by the next batch of waitpid()s. */
-		enum theft_trial_res trial_res = THEFT_TRIAL_ERROR;
-		uint8_t              res_byte  = 0xFF;
-		ssize_t              rd        = 0;
+		int     trial_res = THEFT_RESULT_ERROR;
+		uint8_t res_byte  = 0xFF;
+		ssize_t rd        = 0;
 		for (;;) {
 			rd = read(fd, &res_byte, sizeof(res_byte));
 			if (rd == -1) {
@@ -200,7 +235,7 @@ parent_handle_child_call(
 					errno = 0;
 					continue;
 				}
-				return THEFT_TRIAL_ERROR;
+				return THEFT_RESULT_ERROR;
 			} else {
 				break;
 			}
@@ -208,10 +243,10 @@ parent_handle_child_call(
 
 		if (rd == 0) {
 			/* closed without response -> crashed */
-			trial_res = THEFT_TRIAL_FAIL;
+			trial_res = THEFT_RESULT_FAIL;
 		} else {
 			assert(rd == 1);
-			trial_res = (enum theft_trial_res)res_byte;
+			trial_res = (int)res_byte;
 		}
 
 		return trial_res;
@@ -234,7 +269,7 @@ step_waitpid(struct theft* t)
 				break;
 			} /* No Children */
 			perror("waitpid");
-			return THEFT_TRIAL_ERROR;
+			return THEFT_RESULT_ERROR;
 		} else if (res == 0) {
 			break; /* no children have changed state */
 		} else {
@@ -288,7 +323,7 @@ wait_for_exit(struct theft* t, struct worker_info* worker, size_t timeout,
 	return true;
 }
 
-static enum theft_trial_res
+static int
 theft_call_inner(struct theft* t, void** args)
 {
 	switch (t->prop.arity) {
@@ -318,7 +353,7 @@ theft_call_inner(struct theft* t, void** args)
 		break;
 	/* ... */
 	default:
-		return THEFT_TRIAL_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 }
 
@@ -362,7 +397,7 @@ theft_call_mark_called(struct theft* t)
 			t->prop.arity * sizeof(theft_hash));
 }
 
-static enum theft_hook_fork_post_res
+static int
 run_fork_post_hook(struct theft* t, void** args)
 {
 	if (t->hooks.fork_post == NULL) {

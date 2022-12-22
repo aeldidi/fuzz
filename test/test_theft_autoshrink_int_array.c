@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "test_theft.h"
+#include <stdio.h>
+
+#include "greatest.h"
 #include "test_theft_autoshrink_int_array.h"
+#include "theft.h"
 
 static void ia_print(FILE* f, const void* instance, void* env);
 
 #define IA_MAX 256
 
-static enum theft_alloc_res
+static int
 ia_alloc(struct theft* t, void* env, void** instance)
 {
 	(void)env;
 
 	uint8_t* ints = calloc(IA_MAX, sizeof(uint8_t));
 	if (ints == NULL) {
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 
 	for (size_t i = 0; i < IA_MAX; i++) {
@@ -27,7 +30,7 @@ ia_alloc(struct theft* t, void* env, void** instance)
 
 	*instance = ints;
 	//ia_print(stdout, ints, NULL); printf("\n");
-	return THEFT_ALLOC_OK;
+	return THEFT_RESULT_OK;
 }
 
 static void

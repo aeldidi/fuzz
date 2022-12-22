@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC0-1.0
-#include "theft.h"
-
 #include <assert.h>
+
+#include "theft.h"
 
 /* Fowler/Noll/Vo hash, 64-bit FNV-1a.
  * This hashing algorithm is in the public domain.

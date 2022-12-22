@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "theft.h"
@@ -14,28 +15,27 @@ struct type_info_row {
 	struct theft_type_info       value;
 };
 
-static enum theft_alloc_res
+static int
 bool_alloc(struct theft* t, void* env, void** instance)
 {
 	(void)env;
 	bool* res = malloc(sizeof(*res));
 	if (res == NULL) {
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 	*res      = (bool)theft_random_bits(t, 1);
 	*instance = res;
-	return THEFT_ALLOC_OK;
+	return THEFT_RESULT_OK;
 }
 
 #define BITS_USE_SPECIAL (3)
 
 #define ALLOC_USCALAR(NAME, TYPE, BITS, ...)                                  \
-	static enum theft_alloc_res NAME##_alloc(                             \
-			struct theft* t, void* env, void** instance)          \
+	static int NAME##_alloc(struct theft* t, void* env, void** instance)  \
 	{                                                                     \
 		TYPE* res = malloc(sizeof(*res));                             \
 		if (res == NULL) {                                            \
-			return THEFT_ALLOC_ERROR;                             \
+			return THEFT_RESULT_ERROR;                            \
 		}                                                             \
 		if (((1LU << BITS_USE_SPECIAL) - 1) ==                        \
 				theft_random_bits(t, BITS_USE_SPECIAL)) {     \
@@ -52,16 +52,15 @@ bool_alloc(struct theft* t, void* env, void** instance)
 			(*res) %= limit;                                      \
 		}                                                             \
 		*instance = res;                                              \
-		return THEFT_ALLOC_OK;                                        \
+		return THEFT_RESULT_OK;                                       \
 	}
 
 #define ALLOC_SSCALAR(NAME, TYPE, BITS, ...)                                  \
-	static enum theft_alloc_res NAME##_alloc(                             \
-			struct theft* t, void* env, void** instance)          \
+	static int NAME##_alloc(struct theft* t, void* env, void** instance)  \
 	{                                                                     \
 		TYPE* res = malloc(sizeof(*res));                             \
 		if (res == NULL) {                                            \
-			return THEFT_ALLOC_ERROR;                             \
+			return THEFT_RESULT_ERROR;                            \
 		}                                                             \
 		if (((1LU << BITS_USE_SPECIAL) - 1) ==                        \
 				theft_random_bits(t, BITS_USE_SPECIAL)) {     \
@@ -82,16 +81,15 @@ bool_alloc(struct theft* t, void* env, void** instance)
 			}                                                     \
 		}                                                             \
 		*instance = res;                                              \
-		return THEFT_ALLOC_OK;                                        \
+		return THEFT_RESULT_OK;                                       \
 	}
 
 #define ALLOC_FSCALAR(NAME, TYPE, MOD, BITS, ...)                             \
-	static enum theft_alloc_res NAME##_alloc(                             \
-			struct theft* t, void* env, void** instance)          \
+	static int NAME##_alloc(struct theft* t, void* env, void** instance)  \
 	{                                                                     \
 		TYPE* res = malloc(sizeof(*res));                             \
 		if (res == NULL) {                                            \
-			return THEFT_ALLOC_ERROR;                             \
+			return THEFT_RESULT_ERROR;                            \
 		}                                                             \
 		if (((1LU << BITS_USE_SPECIAL) - 1) ==                        \
 				theft_random_bits(t, BITS_USE_SPECIAL)) {     \
@@ -112,7 +110,7 @@ bool_alloc(struct theft* t, void* env, void** instance)
 			}                                                     \
 		}                                                             \
 		*instance = res;                                              \
-		return THEFT_ALLOC_OK;                                        \
+		return THEFT_RESULT_OK;                                       \
 	}
 
 #define PRINT_SCALAR(NAME, TYPE, FORMAT)                                      \
@@ -142,12 +140,11 @@ ALLOC_USCALAR(uint64_t, uint64_t, 8 * sizeof(uint64_t), 0, 1, 2, 3, 4, 5, 6,
 ALLOC_USCALAR(size_t, size_t, 8 * sizeof(size_t), 0, 1, 2, 3, 4, 5, 6, 255,
 		256, (size_t)-2, (size_t)-1)
 
-ALLOC_SSCALAR(int, unsigned int, 8 * sizeof(int), 0, 1, 2, 3, -1, -2, -3, -4,
+ALLOC_SSCALAR(int, int, 8 * sizeof(int), 0, 1, 2, 3, -1, -2, -3, -4,
 		INT_MIN + 1, INT_MIN, INT_MAX - 1, INT_MAX)
 
 ALLOC_SSCALAR(int8_t, int8_t, 8 * sizeof(int8_t), 0, 1, 2, 3, -1, -2, -3, -4,
-		63, 64, 65, 127, (int8_t)128, (int8_t)129, (int8_t)254,
-		(int8_t)255)
+		63, 64, 65, 127, -128, -127, -2, -1)
 
 ALLOC_SSCALAR(int16_t, int16_t, 8 * sizeof(int16_t), 0, 1, 2, 3, 4, 5, 6, 255,
 		256, 1024, 4096, 16384, (int16_t)32768, (int16_t)32769,
@@ -219,7 +216,7 @@ double_print(FILE* f, const void* instance, void* env)
 	}
 
 #define DEF_BYTE_ARRAY_CEIL 8
-static enum theft_alloc_res
+static int
 char_ARRAY_alloc(struct theft* t, void* env, void** instance)
 {
 	(void)env;
@@ -233,7 +230,7 @@ char_ARRAY_alloc(struct theft* t, void* env, void** instance)
 
 	char* res = malloc(ceil * sizeof(char));
 	if (res == NULL) {
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 	while (true) {
 		if (max_length != NULL && size + 1 == *max_length) {
@@ -244,7 +241,7 @@ char_ARRAY_alloc(struct theft* t, void* env, void** instance)
 			char*        nres = realloc(res, nceil * sizeof(char));
 			if (nres == NULL) {
 				free(res);
-				return THEFT_ALLOC_ERROR;
+				return THEFT_RESULT_ERROR;
 			}
 			res  = nres;
 			ceil = nceil;
@@ -258,7 +255,7 @@ char_ARRAY_alloc(struct theft* t, void* env, void** instance)
 	}
 
 	*instance = res;
-	return THEFT_ALLOC_OK;
+	return THEFT_RESULT_OK;
 }
 
 static void

@@ -3,7 +3,7 @@
 #ifndef TEST_THEFT_AUTOSHRINK_LL_H
 #define TEST_THEFT_AUTOSHRINK_LL_H
 
-#include <stdint.h>
+#include <inttypes.h>
 
 struct ll {
 	char       tag;

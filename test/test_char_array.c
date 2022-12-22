@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "test_theft.h"
+#include <string.h>
 
-static enum theft_trial_res
+#include "greatest.h"
+#include "theft.h"
+
+static int
 prop_char_fails_cause_shrink(struct theft* t, void* arg1)
 {
 	(void)t;
 	char* test_str = arg1;
 
-	return strlen(test_str) ? THEFT_TRIAL_FAIL : THEFT_TRIAL_PASS;
+	return strlen(test_str) ? THEFT_RESULT_FAIL : THEFT_RESULT_OK;
 }
 
 TEST
@@ -29,7 +32,7 @@ char_fail_shrinkage(void)
 			.trials     = 1,
 	};
 
-	ASSERT_EQm("should fail until full contraction", THEFT_RUN_FAIL,
+	ASSERT_EQm("should fail until full contraction", THEFT_RESULT_FAIL,
 			theft_run(&cfg));
 	PASS();
 }

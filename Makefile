@@ -49,6 +49,7 @@ TEST_OBJS=	${BUILD}/test_theft.o \
 		${BUILD}/test_theft_error.o \
 		${BUILD}/test_theft_prng.o \
 		${BUILD}/test_theft_integration.o \
+		${BUILD}/test_theft_no_fork.o \
 		${BUILD}/test_char_array.o \
 
 
@@ -103,11 +104,11 @@ coverage: test | ${BUILD} ${BUILD}/cover
 	@echo moving coverage files to ${BUILD}/cover
 	mv *.gcov ${BUILD}/cover
 
-${BUILD}/theft_bloom.o: ${BUILD}/bits_lut.h
-${BUILD}/theft_autoshrink.o: ${BUILD}/bits_lut.h
-
-${BUILD}/bits_lut.h: | ${BUILD}
-	${SCRIPTS}/mk_bits_lut > $@
+# ${BUILD}/theft_bloom.o: ${BUILD}/bits_lut.h
+# ${BUILD}/theft_autoshrink.o: ${BUILD}/bits_lut.h
+# 
+# ${BUILD}/bits_lut.h: | ${BUILD}
+#	 ${SCRIPTS}/mk_bits_lut > $@
 
 ${BUILD}/%.pc: pc/%.pc.in | ${BUILD}
 	sed -e 's,@prefix@,${PREFIX},g' $< > $@

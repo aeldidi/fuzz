@@ -3,7 +3,7 @@
 #ifndef THEFT_RNG_H
 #define THEFT_RNG_H
 
-#include <stdint.h>
+#include <inttypes.h>
 
 /* Wrapper for Mersenne Twister.
  * See copyright and license in theft_rng.c, more details at:

@@ -5,7 +5,7 @@
 
 #include <stdbool.h>
 
-#include "theft_shrink_internal.h"
+struct theft;
 
 /* Attempt to simplify all arguments, breadth first. Continue as long as
  * progress is made, i.e., until a local minimum is reached. */

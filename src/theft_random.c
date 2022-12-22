@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "theft_random.h"
-
-#include "theft_rng.h"
-#include "theft_types_internal.h"
-
 #include <assert.h>
 #include <inttypes.h>
+
+#include "theft.h"
+#include "theft_autoshrink.h"
+#include "theft_random.h"
+#include "theft_rng.h"
+#include "theft_types_internal.h"
 
 static uint64_t get_mask(uint8_t bits);
 
@@ -76,7 +77,7 @@ theft_random_bits_bulk(struct theft* t, uint32_t bit_count, uint64_t* buf)
 
 		uint8_t take = 64 - shift;
 		if (take > rem) {
-			take = rem;
+			take = (uint8_t)rem;
 		}
 		if (take > t->prng.bits_available) {
 			take = t->prng.bits_available;
@@ -93,7 +94,11 @@ theft_random_bits_bulk(struct theft* t, uint32_t bit_count, uint64_t* buf)
 		LOG(5, "== buf[%zd]: %016" PRIx64 " (%u / %u)\n", offset,
 				buf[offset], bit_count - rem, bit_count);
 		t->prng.bits_available -= take;
-		t->prng.buf >>= take;
+		if (take == 64) {
+			t->prng.buf = 0;
+		} else {
+			t->prng.buf >>= take;
+		}
 
 		shift += take;
 		if (shift == 64) {
@@ -103,16 +108,6 @@ theft_random_bits_bulk(struct theft* t, uint32_t bit_count, uint64_t* buf)
 
 		rem -= take;
 	}
-}
-
-/* Get a random 64-bit integer from the test runner's PRNG.
- *
- * NOTE: This is equivalent to `theft_random_bits(t, 64)`, and
- * will be removed in a future release. */
-theft_seed
-theft_random(struct theft* t)
-{
-	return theft_random_bits(t, 8 * sizeof(uint64_t));
 }
 
 #if THEFT_USE_FLOATING_POINT

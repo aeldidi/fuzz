@@ -1,27 +1,28 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "test_theft.h"
+#include "greatest.h"
 #include "test_theft_autoshrink_bulk.h"
+#include "theft.h"
 
 static void bb_free(void* instance, void* env);
 static void bb_print(FILE* f, const void* instance, void* env);
 
 /* Generate a block of random bits, with a known size.
  * This is mainly to exercise `theft_random_bits_bulk`. */
-static enum theft_alloc_res
+static int
 bb_alloc(struct theft* t, void* env, void** instance)
 {
 	(void)env;
 	size_t    size = theft_random_bits(t, 20);
 	uint64_t* buf  = calloc(size / 64 + 1, sizeof(uint64_t));
 	if (buf == NULL) {
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 
 	struct bulk_buffer* bb = calloc(1, sizeof(*bb));
 	if (bb == NULL) {
 		free(buf);
-		return THEFT_ALLOC_ERROR;
+		return THEFT_RESULT_ERROR;
 	}
 	*bb = (struct bulk_buffer){
 			.size = size,
@@ -32,7 +33,7 @@ bb_alloc(struct theft* t, void* env, void** instance)
 	*instance = bb;
 	//bb_print(stdout, bb, NULL);
 
-	return THEFT_ALLOC_OK;
+	return THEFT_RESULT_OK;
 }
 
 static void

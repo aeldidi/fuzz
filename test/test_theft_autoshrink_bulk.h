@@ -3,8 +3,8 @@
 #ifndef TEST_THEFT_AUTOSHRINK_BULK_H
 #define TEST_THEFT_AUTOSHRINK_BULK_H
 
+#include <inttypes.h>
 #include <stddef.h>
-#include <stdint.h>
 
 struct bulk_buffer {
 	size_t    size;

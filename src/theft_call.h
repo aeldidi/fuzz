@@ -3,11 +3,13 @@
 #ifndef THEFT_CALL_H
 #define THEFT_CALL_H
 
-#include "theft_types_internal.h"
+#include <stdbool.h>
+
+struct theft;
 
 /* Actually call the property function referenced in INFO,
  * with the arguments in ARGS. */
-enum theft_trial_res theft_call(struct theft* t, void** args);
+int theft_call(struct theft* t, void** args);
 
 /* Check if this combination of argument instances has been called. */
 bool theft_call_check_called(struct theft* t);

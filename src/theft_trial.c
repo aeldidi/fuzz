@@ -1,19 +1,24 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "theft_trial.h"
-#include "theft_trial_internal.h"
-
 #include <assert.h>
 #include <inttypes.h>
 
 #include "theft_autoshrink.h"
 #include "theft_call.h"
 #include "theft_shrink.h"
+#include "theft_trial.h"
+#include "theft_types.h"
+
+static int report_on_failure(struct theft*         t,
+		struct theft_hook_trial_post_info* hook_info,
+		theft_hook_trial_post_cb* trial_post, void* trial_post_env);
+
+theft_hook_trial_post_cb def_trial_post_cb;
 
 /* Now that arguments have been generated, run the trial and update
  * counters, call cb with results, etc. */
 bool
-theft_trial_run(struct theft* t, enum theft_hook_trial_post_res* tpres)
+theft_trial_run(struct theft* t, int* tpres)
 {
 	assert(t->prop.arity > 0);
 
@@ -25,7 +30,7 @@ theft_trial_run(struct theft* t, enum theft_hook_trial_post_res* tpres)
 	theft_trial_get_args(t, args);
 
 	bool                      repeated   = false;
-	enum theft_trial_res      tres       = theft_call(t, args);
+	int                       tres       = theft_call(t, args);
 	theft_hook_trial_post_cb* trial_post = t->hooks.trial_post;
 	void* trial_post_env = (trial_post == theft_hook_trial_post_print_result
 						? t->print_trial_result_env
@@ -44,15 +49,15 @@ theft_trial_run(struct theft* t, enum theft_hook_trial_post_res* tpres)
 	};
 
 	switch (tres) {
-	case THEFT_TRIAL_PASS:
+	case THEFT_RESULT_OK:
 		if (!repeated) {
 			t->counters.pass++;
 		}
 		*tpres = trial_post(&hook_info, trial_post_env);
 		break;
-	case THEFT_TRIAL_FAIL:
+	case THEFT_RESULT_FAIL:
 		if (!theft_shrink(t)) {
-			hook_info.result = THEFT_TRIAL_ERROR;
+			hook_info.result = THEFT_RESULT_ERROR;
 			/* We may not have a valid reference to the arguments
              * anymore, so remove the stale pointers. */
 			for (size_t i = 0; i < t->prop.arity; i++) {
@@ -70,15 +75,15 @@ theft_trial_run(struct theft* t, enum theft_hook_trial_post_res* tpres)
 		*tpres = report_on_failure(
 				t, &hook_info, trial_post, trial_post_env);
 		break;
-	case THEFT_TRIAL_SKIP:
+	case THEFT_RESULT_SKIP:
 		if (!repeated) {
 			t->counters.skip++;
 		}
 		*tpres = trial_post(&hook_info, trial_post_env);
 		break;
-	case THEFT_TRIAL_DUP:
+	case THEFT_RESULT_DUPLICATE:
 		/* user callback should not return this; fall through */
-	case THEFT_TRIAL_ERROR:
+	case THEFT_RESULT_ERROR:
 		*tpres = trial_post(&hook_info, trial_post_env);
 		return false;
 	}
@@ -115,7 +120,7 @@ theft_trial_get_args(struct theft* t, void** args)
 }
 
 /* Print info about a failure. */
-static enum theft_hook_trial_post_res
+static int
 report_on_failure(struct theft*                    t,
 		struct theft_hook_trial_post_info* hook_info,
 		theft_hook_trial_post_cb* trial_post, void* trial_post_env)
@@ -139,24 +144,24 @@ report_on_failure(struct theft*                    t,
 		}
 	}
 
-	enum theft_hook_trial_post_res res;
+	int res;
 	res = trial_post(hook_info, trial_post_env);
 
 	while (res == THEFT_HOOK_TRIAL_POST_REPEAT ||
 			res == THEFT_HOOK_TRIAL_POST_REPEAT_ONCE) {
 		hook_info->repeat = true;
 
-		enum theft_trial_res tres = theft_call(t, hook_info->args);
-		if (tres == THEFT_TRIAL_FAIL) {
+		int tres = theft_call(t, hook_info->args);
+		if (tres == THEFT_RESULT_FAIL) {
 			res = trial_post(hook_info, t->hooks.env);
 			if (res == THEFT_HOOK_TRIAL_POST_REPEAT_ONCE) {
 				break;
 			}
-		} else if (tres == THEFT_TRIAL_PASS) {
+		} else if (tres == THEFT_RESULT_OK) {
 			fprintf(t->out, "Warning: Failed property passed when "
 					"re-run.\n");
 			res = THEFT_HOOK_TRIAL_POST_ERROR;
-		} else if (tres == THEFT_TRIAL_ERROR) {
+		} else if (tres == THEFT_RESULT_ERROR) {
 			return THEFT_HOOK_TRIAL_POST_ERROR;
 		} else {
 			return THEFT_HOOK_TRIAL_POST_CONTINUE;

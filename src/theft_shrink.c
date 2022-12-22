@@ -1,12 +1,32 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "theft_shrink.h"
-#include "theft_shrink_internal.h"
-
 #include <assert.h>
+
 #include "theft_autoshrink.h"
 #include "theft_call.h"
+#include "theft_shrink.h"
 #include "theft_trial.h"
+#include "theft_types.h"
+
+enum shrink_res {
+	SHRINK_OK,       /* simplified argument further */
+	SHRINK_DEAD_END, /* at local minima */
+	SHRINK_ERROR,    /* hard error during shrinking */
+	SHRINK_HALT,     /* don't shrink any further */
+};
+
+static enum shrink_res attempt_to_shrink_arg(struct theft* t, uint8_t arg_i);
+
+static enum theft_hook_shrink_pre_res shrink_pre_hook(struct theft* t,
+		uint8_t arg_index, void* arg, uint32_t tactic);
+
+static enum theft_hook_shrink_post_res shrink_post_hook(struct theft* t,
+		uint8_t arg_index, void* arg, uint32_t tactic,
+		enum theft_shrink_res sres);
+
+static enum theft_hook_shrink_trial_post_res shrink_trial_post_hook(
+		struct theft* t, uint8_t arg_index, void** args,
+		uint32_t last_tactic, int result);
 
 #define LOG_SHRINK 0
 
@@ -164,8 +184,8 @@ attempt_to_shrink_arg(struct theft* t, uint8_t arg_i)
 			}
 		}
 
-		enum theft_trial_res res;
-		bool                 repeated = false;
+		int  res;
+		bool repeated = false;
 		for (;;) {
 			void* args[THEFT_MAX_ARITY];
 			theft_trial_get_args(t, args);
@@ -175,7 +195,7 @@ attempt_to_shrink_arg(struct theft* t, uint8_t arg_i)
 					res);
 
 			if (!repeated) {
-				if (res == THEFT_TRIAL_FAIL) {
+				if (res == THEFT_RESULT_FAIL) {
 					t->trial.successful_shrinks++;
 					theft_autoshrink_update_model(
 							t, arg_i, res, 3);
@@ -213,8 +233,8 @@ attempt_to_shrink_arg(struct theft* t, uint8_t arg_i)
 		theft_autoshrink_update_model(t, arg_i, res, 8);
 
 		switch (res) {
-		case THEFT_TRIAL_PASS:
-		case THEFT_TRIAL_SKIP:
+		case THEFT_RESULT_OK:
+		case THEFT_RESULT_SKIP:
 			LOG(2 - LOG_SHRINK,
 					"PASS or SKIP: REVERTING %u: "
 					"candidate %p (pool %p), back to %p "
@@ -234,7 +254,7 @@ attempt_to_shrink_arg(struct theft* t, uint8_t arg_i)
 				ti->free(candidate, ti->env);
 			}
 			break;
-		case THEFT_TRIAL_FAIL:
+		case THEFT_RESULT_FAIL:
 			LOG(2 - LOG_SHRINK,
 					"FAIL: COMMITTING %u: was %p (pool "
 					"%p), now %p (pool %p)\n",
@@ -255,7 +275,7 @@ attempt_to_shrink_arg(struct theft* t, uint8_t arg_i)
 			}
 			return SHRINK_OK;
 		default:
-		case THEFT_TRIAL_ERROR:
+		case THEFT_RESULT_ERROR:
 			if (ti->free) {
 				ti->free(current, ti->env);
 			}
@@ -341,7 +361,7 @@ shrink_post_hook(struct theft* t, uint8_t arg_index, void* arg,
 
 static enum theft_hook_shrink_trial_post_res
 shrink_trial_post_hook(struct theft* t, uint8_t arg_index, void** args,
-		uint32_t last_tactic, enum theft_trial_res result)
+		uint32_t last_tactic, int result)
 {
 	if (t->hooks.shrink_trial_post != NULL) {
 		struct theft_hook_shrink_trial_post_info hook_info = {

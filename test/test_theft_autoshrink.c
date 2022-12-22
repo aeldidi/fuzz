@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2014-19 Scott Vokes <vokes.s@gmail.com>
-#include "test_theft.h"
+#include <assert.h>
+#include <inttypes.h>
+#include <stdbool.h>
+
+#include "greatest.h"
+#include "polyfill.h"
 #include "test_theft_autoshrink_bulk.h"
 #include "test_theft_autoshrink_int_array.h"
 #include "test_theft_autoshrink_ll.h"
+#include "theft.h"
 #include "theft_autoshrink.h"
-
 #include "theft_run.h"
-
-#include "polyfill.h"
 
 #define MAX_PAIRS 16
 struct fake_prng_info {
@@ -111,12 +114,12 @@ static struct autoshrink_bit_pool test_pool = {
 		.requests     = test_pool_requests,
 };
 
-static enum theft_trial_res
+static int
 unused(struct theft* t, void* v)
 {
 	(void)t;
 	(void)v;
-	return THEFT_TRIAL_ERROR;
+	return THEFT_RESULT_ERROR;
 }
 
 static struct theft*
@@ -1067,7 +1070,7 @@ ll_mutate_retries_when_change_has_no_effect(void)
 
 /* Property -- for a randomly generated linked list of numbers,
  * it will not have any duplicated numbers. */
-static enum theft_trial_res
+static int
 prop_no_duplicates(struct theft* t, void* arg1)
 {
 	struct ll* head = (struct ll*)arg1;
@@ -1079,21 +1082,21 @@ prop_no_duplicates(struct theft* t, void* arg1)
 		struct ll* next = cur->next;
 		while (next) {
 			if (next->value == cur->value) {
-				return THEFT_TRIAL_FAIL;
+				return THEFT_RESULT_FAIL;
 			}
 			next = next->next;
 		}
 		cur = cur->next;
 	}
 
-	return THEFT_TRIAL_PASS;
+	return THEFT_RESULT_OK;
 }
 
 /* Property -- for a randomly generated linked list of numbers,
  * the sequence of numbers are not all ascending.
  * The PRNG will generate some runs of ascending numbers;
  * this is to test how well it can automatically shrink them. */
-static enum theft_trial_res
+static int
 prop_not_ascending(struct theft* t, void* arg1)
 {
 	struct ll* head = (struct ll*)arg1;
@@ -1107,18 +1110,18 @@ prop_not_ascending(struct theft* t, void* arg1)
 		length++;
 		if (cur->value <= prev) {
 			// found a non-ascending value
-			return THEFT_TRIAL_PASS;
+			return THEFT_RESULT_OK;
 		}
 		prev = cur->value;
 		cur  = cur->next;
 	}
 
-	return (length > 1 ? THEFT_TRIAL_FAIL : THEFT_TRIAL_PASS);
+	return (length > 1 ? THEFT_RESULT_FAIL : THEFT_RESULT_OK);
 }
 
 /* Property: There won't be any repeated values in the list, with a
  * single non-zero value between them. */
-static enum theft_trial_res
+static int
 prop_no_dupes_with_value_between(struct theft* t, void* arg1)
 {
 	struct ll* head = (struct ll*)arg1;
@@ -1137,7 +1140,7 @@ prop_no_dupes_with_value_between(struct theft* t, void* arg1)
 					(window[0] != 0)) {
 				/* repeated with one value between */
 				//printf("FAIL\n");
-				return THEFT_TRIAL_FAIL;
+				return THEFT_RESULT_FAIL;
 			}
 		} else {
 			window[wi] = cur->value;
@@ -1147,12 +1150,12 @@ prop_no_dupes_with_value_between(struct theft* t, void* arg1)
 		cur = cur->next;
 	}
 
-	return THEFT_TRIAL_PASS;
+	return THEFT_RESULT_OK;
 }
 
 /* Property: There won't be any value in the list immediately
  * followed by its square. */
-static enum theft_trial_res
+static int
 prop_no_nonzero_numbers_followed_by_their_square(struct theft* t, void* arg1)
 {
 	struct ll* head = (struct ll*)arg1;
@@ -1167,17 +1170,17 @@ prop_no_nonzero_numbers_followed_by_their_square(struct theft* t, void* arg1)
 		}
 		if (cur->value > 0 &&
 				(cur->value * cur->value == next->value)) {
-			return THEFT_TRIAL_FAIL;
+			return THEFT_RESULT_FAIL;
 		}
 		cur = next;
 	}
 
-	return THEFT_TRIAL_PASS;
+	return THEFT_RESULT_OK;
 }
 
 /* Property: There won't be three values in a row that are
  * [X, X + 1, X + 2]. */
-static enum theft_trial_res
+static int
 prop_no_seq_of_3(struct theft* t, void* arg1)
 {
 	struct ll* head = (struct ll*)arg1;
@@ -1191,14 +1194,14 @@ prop_no_seq_of_3(struct theft* t, void* arg1)
 			struct ll* next2 = next->next;
 			if ((cur->value + 1 == next->value) &&
 					(next->value + 1 == next2->value)) {
-				return THEFT_TRIAL_FAIL;
+				return THEFT_RESULT_FAIL;
 			}
 		}
 
 		cur = next;
 	}
 
-	return THEFT_TRIAL_PASS;
+	return THEFT_RESULT_OK;
 }
 
 struct hook_env {
@@ -1220,8 +1223,8 @@ ll_trial_pre_hook(const struct theft_hook_trial_pre_info* info, void* penv)
 TEST
 ll_prop(size_t trials, const char* name, theft_propfun1* prop)
 {
-	theft_seed         seed = theft_seed_of_time();
-	enum theft_run_res res;
+	theft_seed seed = theft_seed_of_time();
+	int        res;
 
 	struct hook_env env = {
 			.tag = 'E',
@@ -1241,23 +1244,23 @@ ll_prop(size_t trials, const char* name, theft_propfun1* prop)
 	};
 
 	res = theft_run(&cfg);
-	ASSERT_EQm("should find counter-examples", THEFT_RUN_FAIL, res);
+	ASSERT_EQm("should find counter-examples", THEFT_RESULT_FAIL, res);
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 prop_not_start_with_9(struct theft* t, void* arg1)
 {
 	uint8_t* ia = (uint8_t*)arg1;
 	(void)t;
-	return (ia[0] == 9 ? THEFT_TRIAL_FAIL : THEFT_TRIAL_PASS);
+	return (ia[0] == 9 ? THEFT_RESULT_FAIL : THEFT_RESULT_OK);
 }
 
 TEST
 ia_prop(const char* name, theft_propfun1* prop)
 {
-	theft_seed         seed = theft_seed_of_time();
-	enum theft_run_res res;
+	theft_seed seed = theft_seed_of_time();
+	int        res;
 
 	struct hook_env env = {.tag = 'E', .minimal = false};
 
@@ -1275,11 +1278,11 @@ ia_prop(const char* name, theft_propfun1* prop)
 	};
 
 	res = theft_run(&cfg);
-	ASSERT_EQm("should find counter-examples", THEFT_RUN_FAIL, res);
+	ASSERT_EQm("should find counter-examples", THEFT_RESULT_FAIL, res);
 	PASS();
 }
 
-static enum theft_trial_res
+static int
 random_bulk_bits_contains_23(struct theft* t, void* arg1)
 {
 	struct bulk_buffer* bb = (struct bulk_buffer*)arg1;
@@ -1288,18 +1291,18 @@ random_bulk_bits_contains_23(struct theft* t, void* arg1)
 	const uint8_t* buf8  = (const uint8_t*)bb->buf;
 	for (size_t i = 0; i < limit; i++) {
 		if (buf8[i] == 23) {
-			return THEFT_TRIAL_FAIL;
+			return THEFT_RESULT_FAIL;
 		}
 	}
 
-	return THEFT_TRIAL_PASS;
+	return THEFT_RESULT_OK;
 }
 
-static enum theft_hook_trial_post_res
+static int
 bulk_trial_post_hook(const struct theft_hook_trial_post_info* info, void* penv)
 {
 	struct hook_env* env = (struct hook_env*)penv;
-	if (info->result == THEFT_TRIAL_FAIL) {
+	if (info->result == THEFT_RESULT_FAIL) {
 		struct bulk_buffer* bb = info->args[0];
 		if (bb->size == 8 && bb->buf[0] == 23) {
 			env->minimal = true;
@@ -1323,8 +1326,8 @@ bulk_trial_pre_hook(const struct theft_hook_trial_pre_info* info, void* penv)
 TEST
 bulk_random_bits(void)
 {
-	theft_seed         seed = theft_seed_of_time();
-	enum theft_run_res res;
+	theft_seed seed = theft_seed_of_time();
+	int        res;
 
 	struct hook_env env = {.minimal = false};
 
@@ -1344,22 +1347,22 @@ bulk_random_bits(void)
 	};
 
 	res = theft_run(&cfg);
-	ASSERT_EQm("should find counter-examples", THEFT_RUN_FAIL, res);
+	ASSERT_EQm("should find counter-examples", THEFT_RESULT_FAIL, res);
 	ASSERT(env.minimal);
 	PASS();
 }
 
 #include <math.h>
-static enum theft_trial_res
+static int
 prop_abs_lt1(struct theft* t, void* arg1)
 {
 	double x = *(double*)arg1;
 	(void)t;
 
 	if (fabs(x) < 1) {
-		return THEFT_TRIAL_PASS;
+		return THEFT_RESULT_OK;
 	} else {
-		return THEFT_TRIAL_FAIL;
+		return THEFT_RESULT_FAIL;
 	}
 }
 
@@ -1379,7 +1382,7 @@ halt_after_seeing_1(const struct theft_hook_trial_pre_info* info, void* env)
 	return THEFT_HOOK_TRIAL_PRE_CONTINUE;
 }
 
-static enum theft_hook_trial_post_res
+static int
 note_1(const struct theft_hook_trial_post_info* info, void* env)
 {
 	struct test_env* e = env;
@@ -1395,10 +1398,10 @@ double_abs_lt1(void)
 {
 	theft_seed seed = theft_seed_of_time();
 
-	enum theft_run_res res;
-	struct test_env    e = {
-			   .passed = false,
-        };
+	int             res;
+	struct test_env e = {
+			.passed = false,
+	};
 
 	struct theft_run_config cfg = {
 			.name      = __func__,
@@ -1415,7 +1418,7 @@ double_abs_lt1(void)
 	};
 
 	res = theft_run(&cfg);
-	ASSERT_ENUM_EQm("should find counterexamples", THEFT_RUN_FAIL, res,
+	ASSERT_ENUM_EQm("should find counterexamples", THEFT_RESULT_FAIL, res,
 			theft_run_res_str);
 	ASSERT(e.passed);
 	PASS();

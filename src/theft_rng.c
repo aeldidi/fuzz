@@ -36,6 +36,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "theft_rng.h"
 
 #define THEFT_MT_PARAM_N 312
