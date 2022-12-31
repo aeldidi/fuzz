@@ -631,6 +631,8 @@ enum fuzz_builtin_type_info {
 	// Built-in array types.
 	// If env is non-NULL, it will be cast to a `size_t *` and deferenced
 	// for a max length.
+	// These are always terminated by a 0 byte, and do not generate 0 bytes
+	// as part of the array.
 	FUZZ_BUILTIN_char_ARRAY,
 	FUZZ_BUILTIN_uint8_t_ARRAY,
 };

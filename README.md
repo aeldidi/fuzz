@@ -26,8 +26,6 @@ contained `fuzz.c` and `fuzz.h` which you can simply compile and use.
 Documentation
 -------------
 
-For usage documentation, see [doc/usage.md](doc/usage.md).
-
 For more info about shrinking and auto-shrinking, see
 [doc/shrinking.md](doc/shrinking.md).
 
