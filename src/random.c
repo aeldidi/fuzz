@@ -9,7 +9,15 @@
 #include "rng.h"
 #include "types_internal.h"
 
-static uint64_t get_random_mask(uint8_t bits);
+static uint64_t
+get_random_mask(uint8_t bits)
+{
+	if (bits == 64) {
+		return ~(uint64_t)0; // just set all bits -- would overflow
+	} else {
+		return (1LLU << bits) - 1;
+	}
+}
 
 // (Re-)initialize the random number generator with a specific seed.
 // This stops using the current bit pool.
@@ -157,14 +165,11 @@ fuzz_random_choice(struct fuzz* t, uint64_t ceil)
 	uint64_t res = (uint64_t)(mul * ceil);
 	return res;
 }
-#endif
 
-static uint64_t
-get_random_mask(uint8_t bits)
+uint64_t
+fuzz_random_range(struct fuzz* f, const uint64_t min, const uint64_t max)
 {
-	if (bits == 64) {
-		return ~(uint64_t)0; // just set all bits -- would overflow
-	} else {
-		return (1LLU << bits) - 1;
-	}
+	assert(min < max);
+	return fuzz_random_choice(f, max - min + 1) + min;
 }
+#endif

@@ -490,11 +490,17 @@ double fuzz_random_double(struct fuzz* t);
 // approximately evenly distributed values from [0, 1, 2, 3, 4].
 FUZZ_PUBLIC
 uint64_t fuzz_random_choice(struct fuzz* t, uint64_t ceil);
+
+// Get a random uint64_t in the range [min, max].
+// For example, `fuzz_random_range(f, 7, 18)` will return approximately evenly
+// distributed values from [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].
+FUZZ_PUBLIC
+uint64_t fuzz_random_range(
+		struct fuzz* f, const uint64_t min, const uint64_t max);
 #endif
 
 // Hash a buffer in one pass. (Wraps the below functions.)
-FUZZ_PUBLIC
-uint64_t fuzz_hash_onepass(const uint8_t* data, size_t bytes);
+FUZZ_PUBLIC uint64_t fuzz_hash_onepass(const uint8_t* data, size_t bytes);
 
 // Initialize/reset a hasher h for incremental hashing.
 FUZZ_PUBLIC
