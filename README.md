@@ -1,97 +1,47 @@
-theft: property-based testing for C
-===================================
+`github.com/aeldidi/fuzz`
+=========================
 
-theft is a C library for property-based testing. Where example-based testing
-checks test results for specific input, theft tests assert general properties
-("for any possible input, [some condition] should hold"), generate input, and
-search for counter-examples that make the test fail. If theft finds any
-failures, it also knows how to generate and test simpler variants of the input,
-and then report the simplest counter-example found.
+`fuzz` is a library for fuzzing C code. Fuzz testing allows generating random
+input in a specific structure which can be used as input to test some function,
+possibly uncovering cases in code that a programmer didn't think of. When a
+fuzz test fails, the library will generate simpler versions of the input, and
+only report the simplest input which still failed the test. This is called
+"shrinking the input" and is useful to help remove extraneous information from
+a test case, which makes fixing the bug easier.
 
-theft is distributed under the ISC license.
+`fuzz` is a fork of [theft](https://github.com/silentbicycle/theft) with small
+modifications and support for Windows.
 
-theft does not depend on anything except for either:
+`fuzz` does not depend on anything except for either:
 
 - A POSIX.1-2008-compatible C environment, or
-- An implementation of the Win32 API (implemented for Windows).
-
-Building with Meson
--------------------
-
-The reccomended way to build theft is using the
-[Meson Build System](https://mesonbuild.com).
-
-    meson build
-    cd build
-    meson compile
-
-The tests can then be run like so:
-
-    meson test
-
-To install libtheft and its headers:
-
-    meson install
-
-To vendor theft, you'd add the following in your `meson.build`:
-
-    theft = subproject('theft')
-    theft_dep = theft.get_variable('theft_dep')
-
-And then use it like any other `meson` dependency.
-
-Building with GNU Make
-----------------------
-
-To build, using GNU make:
-
-    make
-
-Note: You may need to call it as `gmake`, especially if building on BSD.
-
-To build and run the tests:
-
-    make test
-
-This will produce example output from several falsifiable properties, and
-confirm that failures have been found.
-
-To install libtheft and its headers:
-
-    make install    # using sudo, if necessary
-
-theft can also be vendored inside of projects -- in that case, just make
-sure the headers in `${VENDOR}/theft/inc/` are added to the `-I` include
-path, and `${VENDOR}/theft/build/libtheft.a` is linked.
+- A Windows C development environment.
 
 Usage
 -----
 
-For usage documentation, see [doc/usage.md](doc/usage.md).
+Go to the releases page and download the latest release, which contains a self
+contained `fuzz.c` and `fuzz.h` which you can simply compile and use.
 
-Properties
-----------
+Documentation
+-------------
+
+For usage documentation, see [doc/usage.md](doc/usage.md).
 
 For some examples of properties to test, see
 [doc/properties.md](doc/properties.md).
 
-Shrinking and Auto-shrinking
-----------------------------
-
 For more info about shrinking and auto-shrinking, see
 [doc/shrinking.md](doc/shrinking.md).
 
-Forking
--------
-
-theft can fork before running properties, to shrink failures that make
-the code under test crash or exceed an optional timeout. For more info,
-see [doc/forking.md](doc/forking.md).
+`fuzz` can fork before running properties, to shrink failures that make the
+code under test crash or exceed an optional timeout. For more info, see
+[doc/forking.md](doc/forking.md).
 
 License
 -------
 
-Theft is made availible under the ISC license, however it contains
+`aeldidi/fuzz` is made availible under the ISC license, however it contains
 implementations of the [Mersenne Twister][mt] PRNG and the [FNV-1a][fnv]
 hashing algorithm - these are licensed as [BSD-3-Clause][bsd3] and [CC0][cc0]
 respectively.

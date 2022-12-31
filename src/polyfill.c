@@ -3,10 +3,6 @@
 
 extern int errno;
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #if defined(_WIN32)
 #include <fcntl.h>
 #include <io.h>
@@ -211,33 +207,25 @@ compute_wait_revents(HANDLE h, short events, int object, int wait_rc)
 		rc |= POLLOUT;
 	}
 
-	/*
-	 * Check if this handle was signaled by WaitForMultipleObjects
-	 */
+	// Check if this handle was signaled by WaitForMultipleObjects
 	if ((DWORD)wait_rc >= WAIT_OBJECT_0 &&
 			(object == (int)(wait_rc - WAIT_OBJECT_0)) &&
 			(events & (POLLIN | POLLRDNORM))) {
 
-		/*
-		 * Check if this file is stdin, and if so, if it is a console.
-		 */
+		// Check if this file is stdin, and if so, if it is a console.
 		if (h == GetStdHandle(STD_INPUT_HANDLE) &&
 				PeekConsoleInput(h, &record, 1, &num_read) ==
 						1) {
 
-			/*
-			 * Handle the input console buffer differently,
-			 * since it can signal on other events like
-			 * window and mouse, but read can still block.
-			 */
+			// Handle the input console buffer differently,
+			// since it can signal on other events like
+			// window and mouse, but read can still block.
 			if (record.EventType == KEY_EVENT &&
 					record.Event.KeyEvent.bKeyDown) {
 				rc |= POLLIN;
 			} else {
-				/*
-				 * Flush non-character events from the
-				 * console buffer.
-				 */
+				// Flush non-character events from the
+				// console buffer.
 				ReadConsoleInput(h, &record, 1, &num_read);
 			}
 		} else {
@@ -257,11 +245,9 @@ wsa_select_errno(int err)
 		errno = EINTR;
 		break;
 	case WSAEFAULT:
-		/*
-		 * Windows uses WSAEFAULT for both resource allocation failures
-		 * and arguments not being contained in the user's address
-		 * space. So, we have to choose EFAULT or ENOMEM.
-		 */
+		// Windows uses WSAEFAULT for both resource allocation failures
+		// and arguments not being contained in the user's address
+		// space. So, we have to choose EFAULT or ENOMEM.
 		errno = EFAULT;
 		break;
 	case WSAEINVAL:
@@ -283,16 +269,12 @@ poll(struct pollfd* pfds, nfds_t nfds, int timeout_ms)
 	nfds_t i;
 	int    timespent_ms, looptime_ms;
 
-	/*
-	 * select machinery
-	 */
+	// select machinery
 	fd_set rfds, wfds, efds;
 	int    rc;
 	int    num_sockets;
 
-	/*
-	 * wait machinery
-	 */
+	// wait machinery
 	DWORD  wait_rc;
 	HANDLE handles[FD_SETSIZE];
 	int    num_handles;
@@ -346,26 +328,24 @@ poll(struct pollfd* pfds, nfds_t nfds, int timeout_ms)
 		}
 	}
 
-	/*
-	 * Determine if the files, pipes, sockets, consoles, etc. have signaled.
-	 *
-	 * Do this by alternating a loop between WaitForMultipleObjects for
-	 * non-sockets and and select for sockets.
-	 *
-	 * I tried to implement this all in terms of WaitForMultipleObjects
-	 * with a select-based 'poll' of the sockets at the end to get extra
-	 * specific socket status.
-	 *
-	 * However, the cost of setting up an event handle for each socket and
-	 * cleaning them up reliably was pretty high. Since the event handle
-	 * associated with a socket is also global, creating a new one here
-	 * cancels one that may exist externally to this function.
-	 *
-	 * At any rate, even if global socket event handles were not an issue,
-	 * the 'FD_WRITE' status of a socket event handle does not behave in an
-	 * expected fashion, being triggered by an edge on a write buffer rather
-	 * than simply triggering if there is space available.
-	 */
+	// Determine if the files, pipes, sockets, consoles, etc. have signaled.
+	//
+	// Do this by alternating a loop between WaitForMultipleObjects for
+	// non-sockets and and select for sockets.
+	//
+	// I tried to implement this all in terms of WaitForMultipleObjects
+	// with a select-based 'poll' of the sockets at the end to get extra
+	// specific socket status.
+	//
+	// However, the cost of setting up an event handle for each socket and
+	// cleaning them up reliably was pretty high. Since the event handle
+	// associated with a socket is also global, creating a new one here
+	// cancels one that may exist externally to this function.
+	//
+	// At any rate, even if global socket event handles were not an issue,
+	// the 'FD_WRITE' status of a socket event handle does not behave in an
+	// expected fashion, being triggered by an edge on a write buffer rather
+	// than simply triggering if there is space available.
 	timespent_ms = 0;
 	wait_rc      = WAIT_FAILED;
 
@@ -379,37 +359,29 @@ poll(struct pollfd* pfds, nfds_t nfds, int timeout_ms)
 		tv.tv_usec          = looptime_ms * 1000;
 		int handle_signaled = 0;
 
-		/*
-		 * Check if any file handles have signaled
-		 */
+		// Check if any file handles have signaled
 		if (num_handles) {
 			wait_rc = WaitForMultipleObjects(
 					num_handles, handles, FALSE, 0);
 			if (wait_rc == WAIT_FAILED) {
-				/*
-				 * The documentation for WaitForMultipleObjects
-				 * does not specify what values GetLastError
-				 * may return here. Rather than enumerate
-				 * badness like for wsa_select_errno, assume a
-				 * general errno value.
-				 */
+				// The documentation for WaitForMultipleObjects
+				// does not specify what values GetLastError
+				// may return here. Rather than enumerate
+				// badness like for wsa_select_errno, assume a
+				// general errno value.
 				errno = ENOMEM;
 				return 0;
 			}
 		}
 
-		/*
-		 * If we signaled on a file handle, don't wait on the sockets.
-		 */
+		// If we signaled on a file handle, don't wait on the sockets.
 		if (wait_rc >= WAIT_OBJECT_0 &&
 				(wait_rc <= WAIT_OBJECT_0 + num_handles - 1)) {
 			tv.tv_usec      = 0;
 			handle_signaled = 1;
 		}
 
-		/*
-		 * Check if any sockets have signaled
-		 */
+		// Check if any sockets have signaled
 		rc = select(0, &rfds, &wfds, &efds, &tv);
 		if (!handle_signaled && rc == SOCKET_ERROR)
 			return wsa_select_errno(WSAGetLastError());
@@ -448,8 +420,4 @@ poll(struct pollfd* pfds, nfds_t nfds, int timeout_ms)
 	return rc;
 }
 
-#endif
-
-#if defined(__cplusplus)
-}
 #endif

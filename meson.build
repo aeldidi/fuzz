@@ -1,5 +1,5 @@
 project(
-    'theft',
+    'fuzz',
     'c',
     default_options: [
         'c_std=c99',
@@ -10,64 +10,58 @@ project(
 cc = meson.get_compiler('c')
 deps = []
 
-if host_machine.system() == 'windows'
-    deps += cc.find_library('ws2_32')
-    if cc.get_id() == 'msvc'
-        add_project_arguments(
-            [
-                '-DTHEFT_PUBLIC=__declspec(dllexport)',
-            ],
-            language: 'c',
-        )
-    endif
-else
+if host_machine.system() != 'windows'
     deps += cc.find_library('m')
     add_project_arguments(
         [
             '-D_POSIX_C_SOURCE=200809L',
-            '-DTHEFT_PUBLIC=',
         ],
         language: 'c',
     )
 endif
 
 srcs = files(
+    'src/autoshrink.c',
+    'src/autoshrink.h',
+    'src/aux.c',
+    'src/aux_builtin.c',
+    'src/bloom.c',
+    'src/bloom.h',
+    'src/call.c',
+    'src/call.h',
+    'src/fuzz.c',
+    'src/fuzz.h',
+    'src/hash.c',
     'src/polyfill.c',
-    'src/theft.c',
-    'src/theft_autoshrink.c',
-    'src/theft_aux.c',
-    'src/theft_aux_builtin.c',
-    'src/theft_bloom.c',
-    'src/theft_call.c',
-    'src/theft_hash.c',
-    'src/theft_random.c',
-    'src/theft_rng.c',
-    'src/theft_run.c',
-    'src/theft_shrink.c',
-    'src/theft_trial.c',
+    'src/polyfill.h',
+    'src/random.c',
+    'src/random.h',
+    'src/rng.c',
+    'src/rng.h',
+    'src/run.c',
+    'src/run.h',
+    'src/shrink.c',
+    'src/shrink.h',
+    'src/trial.c',
+    'src/trial.h',
+    'src/types_internal.h',
 )
 
-incdirs = include_directories('src/', 'inc/')
-
-theft_lib = library(
-    'theft',
-    srcs,
-    include_directories: incdirs,
-    dependencies: deps,
+amalgamate_exe = executable(
+    'amalgamate_exe',
+    files('tools/amalgamate.c'),
 )
 
-theft_dep = declare_dependency(
-    link_with: theft_lib,
-    include_directories: include_directories('inc/'),
+fuzz_c = custom_target(
+    'fuzz.c',
+    input: srcs,
+    output: 'fuzz.c',
+    command: [amalgamate_exe, meson.source_root() / 'src'],
 )
 
-pkg = import('pkgconfig')
-pkg.generate(theft_lib)
+srcs = [fuzz_c]
 
-install_headers(
-    'inc/theft_types.h',
-    'inc/theft.h',
-)
-
-greatest = include_directories('vendor/')
+incdirs = include_directories('src/')
 subdir('test/')
+
+alias_target('amalgamate', fuzz_c)

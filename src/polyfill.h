@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: ISC
 // SPDX-FileCopyrightText: 2022 Ayman El Didi
-#ifndef THEFT_POLYFILL_H
-#define THEFT_POLYFILL_H
+#ifndef FUZZ_POLYFILL_H
+#define FUZZ_POLYFILL_H
 
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
 
-#define THEFT_POLYFILL_HAVE_FORK true
+#define FUZZ_POLYFILL_HAVE_FORK true
 #if defined(_WIN32)
-#undef THEFT_POLYFILL_HAVE_FORK
-#define THEFT_POLYFILL_HAVE_FORK false
+#undef FUZZ_POLYFILL_HAVE_FORK
+#define FUZZ_POLYFILL_HAVE_FORK false
 #include "poll_windows.h"
 
 // Windows's read() function returns int.
@@ -71,4 +71,4 @@ int setrlimit(int resource, const struct rlimit* rlim);
 int getrlimit(int resource, struct rlimit* rlim);
 #endif
 
-#endif // THEFT_POLYFILL_H
+#endif // FUZZ_POLYFILL_H

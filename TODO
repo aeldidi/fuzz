@@ -1,5 +1,0 @@
-[ ] Greatly reduce the public API to something minimal
-        [ ] Remove {run,trial,shrink}_{pre,post} hook api from public API and
-            have a fixed output format
-[ ] Make this build as an amalgamation
-[ ] Run the tests using the amalgamation
