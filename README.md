@@ -12,7 +12,7 @@ a test case, which makes fixing the bug easier.
 `fuzz` is a fork of [theft](https://github.com/silentbicycle/theft) with small
 modifications and support for Windows.
 
-`fuzz` does not depend on anything except for either:
+To use `fuzz`, one of the following is required:
 
 - A POSIX.1-2008-compatible C environment, or
 - A Windows C development environment.
@@ -22,6 +22,10 @@ Usage
 
 Go to the releases page and download the latest release, which contains a self
 contained `fuzz.c` and `fuzz.h` which you can simply compile and use.
+
+Note that `fuzz` makes use of math functions in the C standard library, which
+sometimes requires passing additional compilation flags. See your compiler's
+documentation for how to do so if necessary.
 
 Documentation
 -------------
